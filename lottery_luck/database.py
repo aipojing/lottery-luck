@@ -95,8 +95,11 @@ class RemoteCursor:
             close()
 
     def __iter__(self) -> Iterator[RemoteRow]:
-        for row in self._cursor:
-            yield self._adapt_row(row)
+        while True:
+            row = self.fetchone()
+            if row is None:
+                return
+            yield row
 
     def __enter__(self) -> "RemoteCursor":
         return self

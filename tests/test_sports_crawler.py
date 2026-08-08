@@ -118,6 +118,52 @@ def test_fetch_game_rows_uses_official_game_number_mapping_and_payload_shape():
     assert "User-Agent" in request.headers
 
 
+def test_fetch_game_rows_mirror_maps_latest_draw_payload():
+    seen_requests = []
+
+    def handler(request):
+        seen_requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "code": 1,
+                "info": "成功",
+                "data": {
+                    "data": {
+                        "list": [
+                            {
+                                "code": "26089",
+                                "day": "2026-08-08",
+                                "one": "03",
+                                "two": "07",
+                                "three": "12",
+                                "four": "14",
+                                "five": "26",
+                                "six": "05",
+                                "seven": "11",
+                            }
+                        ]
+                    }
+                },
+            },
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    rows = sports_crawler.fetch_game_rows_mirror(
+        "dlt", page_size=20, page_no=2, client=client
+    )
+
+    assert rows[0]["lotteryDrawNum"] == "26089"
+    assert rows[0]["lotteryDrawTime"] == "2026-08-08"
+    assert rows[0]["lotteryDrawResult"] == "03 07 12 14 26 05 11"
+    assert rows[0]["mirrorPayload"]["code"] == "26089"
+    request = seen_requests[0]
+    assert request.url.params["type"] == "dlt"
+    assert request.url.params["page"] == "2"
+    assert request.url.params["limit"] == "20"
+
+
 def test_official_history_page_url_uses_lottery_gov_page_keys():
     assert (
         sports_crawler.official_history_page_url("dlt")

@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 import httpx
 
-from .crawler import _json_stringify, _split_draw_date, _stringify, upsert_draw
+from .crawler import _json_stringify, _split_draw_date, _stringify, upsert_new_draws
 from .data_health import duration_ms, record_crawl_log, utc_now_iso
 from .database import connect_database
 from .rules import GAME_RULES
@@ -20,6 +20,7 @@ from .rules import GAME_RULES
 
 SPORTS_API_BASE_URL = "https://webapi.sporttery.cn"
 SPORTS_API_PATH = "/gateway/lottery/getHistoryPageListV1.qry"
+SPORTS_MIRROR_API_URL = "https://api.huiniao.top/interface/home/lotteryHistory"
 SPORTS_GAME_NUMBERS = {
     "dlt": "85",
     "pl3": "35",
@@ -30,6 +31,20 @@ SPORTS_PAGE_KEYS = {
     "pl3": "pls",
     "pl5": "plw",
 }
+SPORTS_MIRROR_TYPES = {
+    "dlt": "dlt",
+    "pl3": "pls",
+    "pl5": "plw",
+}
+SPORTS_MIRROR_NUMBER_FIELDS = (
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+)
 USER_AGENT = "lottery-luck-sports-crawler/0.1 (+https://www.lottery.gov.cn)"
 BROWSER_USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -194,6 +209,53 @@ def fetch_game_rows(
             request_client.close()
 
 
+def fetch_game_rows_mirror(
+    game_key: str,
+    page_size: int = 30,
+    page_no: int = 1,
+    client: httpx.Client | None = None,
+) -> list[dict[str, Any]]:
+    game = _require_sports_game(game_key)
+    request_client = client or httpx.Client(timeout=20.0)
+    should_close = client is None
+    try:
+        response = request_client.get(
+            SPORTS_MIRROR_API_URL,
+            params={
+                "type": SPORTS_MIRROR_TYPES[game],
+                "page": str(page_no),
+                "limit": str(page_size),
+            },
+            headers={"User-Agent": BROWSER_USER_AGENT},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("code") not in (1, "1"):
+            raise ValueError(f"sports mirror returned code={payload.get('code')}")
+        rows = (((payload.get("data") or {}).get("data") or {}).get("list"))
+        if not isinstance(rows, list):
+            raise ValueError("unexpected sports mirror payload shape")
+
+        number_count = 7 if game == "dlt" else 3
+        return [
+            {
+                "lotteryDrawNum": row.get("code"),
+                "lotteryDrawTime": row.get("day"),
+                "lotteryDrawResult": " ".join(
+                    _stringify(row.get(field)).zfill(2 if game == "dlt" else 1)
+                    for field in SPORTS_MIRROR_NUMBER_FIELDS[:number_count]
+                ),
+                "lotteryGameName": GAME_RULES[game].name,
+                "mirrorPayload": row,
+            }
+            for row in rows
+            if isinstance(row, dict)
+        ]
+    finally:
+        if should_close:
+            request_client.close()
+
+
 BrowserPayloadRunner = Callable[[str, str, dict[str, str], int, bool], Any]
 
 
@@ -341,14 +403,12 @@ def crawl_sports_games(
     else:
         factory = connect_database
     with factory() as connection:
-        for index, game_key in enumerate(games):
+        for game_key in games:
             game = _require_sports_game(game_key)
             started_at = utc_now_iso()
             game_wrote_count = 0
             status = "success"
             error = ""
-            savepoint_name = f"sports_game_{index}"
-            connection.execute(f"SAVEPOINT {savepoint_name}")
             try:
                 rows = []
                 for page_offset in range(max(1, pages)):
@@ -364,42 +424,39 @@ def crawl_sports_games(
                             headless=headless,
                         )
                     )
-                for row in rows:
-                    upsert_draw(connection, normalize_sports_row(game, row))
-                    game_wrote_count += 1
+                draws = [normalize_sports_row(game, row) for row in rows]
+                game_wrote_count = upsert_new_draws(connection, draws)
             except Exception as exc:
-                connection.execute(f"ROLLBACK TO {savepoint_name}")
+                connection.rollback()
                 status = "failed"
                 error = str(exc)
                 failed_games.append(game)
                 game_wrote_count = 0
-            finally:
-                connection.execute(f"RELEASE {savepoint_name}")
-                finished_at = utc_now_iso()
-                record_crawl_log(
-                    connection,
-                    provider="sports",
-                    game_key=game,
-                    source=source,
-                    page_size=page_size,
-                    pages=max(1, pages),
-                    wrote_count=game_wrote_count,
-                    status=status,
-                    error=error,
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    duration_ms=duration_ms(started_at, finished_at),
-                )
-                results.append(
-                    {
-                        "game_key": game,
-                        "status": status,
-                        "wrote_count": game_wrote_count,
-                        "error": error,
-                    }
-                )
-                wrote_count += game_wrote_count
-        connection.commit()
+            finished_at = utc_now_iso()
+            record_crawl_log(
+                connection,
+                provider="sports",
+                game_key=game,
+                source=source,
+                page_size=page_size,
+                pages=max(1, pages),
+                wrote_count=game_wrote_count,
+                status=status,
+                error=error,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms(started_at, finished_at),
+            )
+            connection.commit()
+            results.append(
+                {
+                    "game_key": game,
+                    "status": status,
+                    "wrote_count": game_wrote_count,
+                    "error": error,
+                }
+            )
+            wrote_count += game_wrote_count
 
     return {
         "provider": "sports",
@@ -436,6 +493,12 @@ def _fetch_rows_by_source(
             page_no=page_no,
             base_url=base_url,
         )
+    if source == "mirror":
+        return fetch_game_rows_mirror(
+            game_key,
+            page_size=page_size,
+            page_no=page_no,
+        )
     return fetch_game_rows_auto(
         game_key,
         page_size=page_size,
@@ -453,7 +516,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--page-no", type=int, default=1)
     parser.add_argument("--pages", type=int, default=1)
     parser.add_argument("--base-url", default=None)
-    parser.add_argument("--source", choices=["auto", "direct", "browser"], default="auto")
+    parser.add_argument(
+        "--source",
+        choices=["auto", "direct", "browser", "mirror"],
+        default="auto",
+    )
     parser.add_argument("--timeout-ms", type=int, default=30000)
     parser.add_argument("--browser-headed", action="store_true")
     parser.add_argument("--db-path", default=None)

@@ -1313,7 +1313,7 @@ def test_cron_requires_bearer_secret_and_never_runs_without_it(monkeypatch):
     assert calls == []
 
 
-def test_authorized_cron_runs_cwl_then_direct_sports(monkeypatch):
+def test_authorized_cron_runs_cwl_then_mirrored_sports(monkeypatch):
     monkeypatch.setenv("CRON_SECRET", "cron-secret-123456")
     calls = []
 
@@ -1349,10 +1349,10 @@ def test_authorized_cron_runs_cwl_then_direct_sports(monkeypatch):
     assert [call["provider"] for call in calls] == ["cwl", "sports"]
     assert calls[0]["games"] == ["ssq", "3d", "kl8"]
     assert calls[1]["games"] == ["dlt", "pl3"]
-    assert calls[1]["source"] == "direct"
+    assert calls[1]["source"] == "mirror"
     assert response.json()["results"][0]["result"]["games"] == ["ssq", "3d", "kl8"]
     assert response.json()["results"][1]["result"]["games"] == ["dlt", "pl3"]
-    assert response.json()["results"][1]["result"]["source"] == "direct"
+    assert response.json()["results"][1]["result"]["source"] == "mirror"
 
 
 def test_admin_run_task_endpoint_creates_runs_and_finishes_cwl_task(monkeypatch):

@@ -144,7 +144,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--once", action="store_true", help="Run one crawl task immediately.")
     parser.add_argument("--provider", choices=["cwl", "sports"], default="cwl")
     parser.add_argument("--games", default="")
-    parser.add_argument("--source", choices=["auto", "direct", "browser"], default="auto")
+    parser.add_argument(
+        "--source",
+        choices=["auto", "direct", "browser", "mirror"],
+        default="auto",
+    )
     parser.add_argument("--page-size", type=int, default=100)
     parser.add_argument("--pages", type=int, default=1)
     parser.add_argument("--timeout-ms", type=int, default=30000)

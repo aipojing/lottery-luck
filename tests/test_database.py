@@ -138,6 +138,26 @@ def test_remote_connection_adapts_tuple_rows_to_sqlite_row_api(monkeypatch):
     assert raw_connection.closed is True
 
 
+def test_remote_cursor_iteration_supports_fetch_only_libsql_cursor():
+    class FetchOnlyCursor:
+        description = (("game_key",), ("draw_count",))
+
+        def __init__(self):
+            self.rows = [("game-a", 3), ("game-b", 5)]
+
+        def fetchone(self):
+            if not self.rows:
+                return None
+            return self.rows.pop(0)
+
+    cursor = database.RemoteCursor(FetchOnlyCursor())
+
+    assert [(row["game_key"], row["draw_count"]) for row in cursor] == [
+        ("game-a", 3),
+        ("game-b", 5),
+    ]
+
+
 def test_remote_connection_context_manager_rolls_back_and_closes(monkeypatch):
     raw_connection = FakeLibsqlConnection()
 

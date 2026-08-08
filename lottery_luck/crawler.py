@@ -98,8 +98,11 @@ def _quote_identifier(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
-def upsert_draw(connection: sqlite3.Connection, draw: dict[str, Any]) -> None:
-    columns = [column for column in _draw_columns(connection) if column in draw]
+def _prepare_draw_upsert(
+    draw: dict[str, Any],
+    available_columns: list[str],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    columns = tuple(column for column in available_columns if column in draw)
     if "game_key" not in columns or "issue" not in columns:
         raise ValueError("draws table and draw data must include game_key and issue")
 
@@ -110,6 +113,18 @@ def upsert_draw(connection: sqlite3.Connection, draw: dict[str, Any]) -> None:
     if not issue:
         raise ValueError("issue must be non-empty")
 
+    values = []
+    for column in columns:
+        if column == "game_key":
+            values.append(game_key)
+        elif column == "issue":
+            values.append(issue)
+        else:
+            values.append(_stringify(draw[column]))
+    return columns, tuple(values)
+
+
+def _draw_upsert_sql(columns: tuple[str, ...]) -> str:
     placeholders = ", ".join("?" for _ in columns)
     column_sql = ", ".join(_quote_identifier(column) for column in columns)
     update_columns = [column for column in columns if column not in {"game_key", "issue"}]
@@ -123,20 +138,59 @@ def upsert_draw(connection: sqlite3.Connection, draw: dict[str, Any]) -> None:
     else:
         conflict_sql = "DO NOTHING"
 
-    sql = f"""
+    return f"""
     INSERT INTO draws ({column_sql})
     VALUES ({placeholders})
     ON CONFLICT(game_key, issue) {conflict_sql}
     """
-    values = []
-    for column in columns:
-        if column == "game_key":
-            values.append(game_key)
-        elif column == "issue":
-            values.append(issue)
-        else:
-            values.append(_stringify(draw[column]))
-    connection.execute(sql, values)
+
+
+def upsert_draw(connection: sqlite3.Connection, draw: dict[str, Any]) -> None:
+    columns, values = _prepare_draw_upsert(draw, _draw_columns(connection))
+    connection.execute(_draw_upsert_sql(columns), values)
+
+
+def upsert_draws(connection: sqlite3.Connection, draws: list[dict[str, Any]]) -> None:
+    if not draws:
+        return
+
+    available_columns = _draw_columns(connection)
+    batches: dict[tuple[str, ...], list[tuple[str, ...]]] = {}
+    for draw in draws:
+        columns, values = _prepare_draw_upsert(draw, available_columns)
+        batches.setdefault(columns, []).append(values)
+
+    for columns, values in batches.items():
+        connection.executemany(_draw_upsert_sql(columns), values)
+
+
+def upsert_new_draws(connection: sqlite3.Connection, draws: list[dict[str, Any]]) -> int:
+    if not draws:
+        return 0
+
+    game_keys = {_stringify(draw.get("game_key")).strip() for draw in draws}
+    if len(game_keys) != 1 or not next(iter(game_keys)):
+        raise ValueError("batched draws must share one non-empty game_key")
+
+    issues = [_stringify(draw.get("issue")).strip() for draw in draws]
+    if any(not issue for issue in issues):
+        raise ValueError("issue must be non-empty")
+
+    placeholders = ", ".join("?" for _ in issues)
+    existing_issues = {
+        str(row[0])
+        for row in connection.execute(
+            f"SELECT issue FROM draws WHERE game_key = ? AND issue IN ({placeholders})",
+            (next(iter(game_keys)), *issues),
+        )
+    }
+    pending = [
+        draw
+        for draw, issue in zip(draws, issues, strict=True)
+        if issue not in existing_issues
+    ]
+    upsert_draws(connection, pending)
+    return len(pending)
 
 
 def _extract_rows(payload: Any) -> list[dict[str, Any]]:
@@ -194,52 +248,46 @@ def crawl_cwl_games(
 
     factory = connection_factory or connect_database
     with factory() as connection:
-        for index, game_key in enumerate(normalized_games):
+        for game_key in normalized_games:
             started_at = utc_now_iso()
             status = "success"
             error = ""
             wrote_count = 0
-            savepoint_name = f"cwl_{index}"
-            connection.execute(f"SAVEPOINT {savepoint_name}")
             try:
                 rows = fetch_game_rows(game_key, page_size=page_size, page_no=1)
-                for row in rows:
-                    draw = normalize_api_row(game_key, row)
-                    upsert_draw(connection, draw)
-                    wrote_count += 1
+                draws = [normalize_api_row(game_key, row) for row in rows]
+                wrote_count = upsert_new_draws(connection, draws)
             except Exception as exc:
-                connection.execute(f"ROLLBACK TO {savepoint_name}")
+                connection.rollback()
                 status = "failed"
                 error = str(exc)
                 failed_games.append(game_key)
                 wrote_count = 0
-            finally:
-                connection.execute(f"RELEASE {savepoint_name}")
-                finished_at = utc_now_iso()
-                record_crawl_log(
-                    connection,
-                    provider="cwl",
-                    game_key=game_key,
-                    source="api",
-                    page_size=page_size,
-                    pages=1,
-                    wrote_count=wrote_count,
-                    status=status,
-                    error=error,
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    duration_ms=duration_ms(started_at, finished_at),
-                )
-                result_rows.append(
-                    {
-                        "game_key": game_key,
-                        "status": status,
-                        "wrote_count": wrote_count,
-                        "error": error,
-                    }
-                )
-                total_wrote += wrote_count
-        connection.commit()
+            finished_at = utc_now_iso()
+            record_crawl_log(
+                connection,
+                provider="cwl",
+                game_key=game_key,
+                source="api",
+                page_size=page_size,
+                pages=1,
+                wrote_count=wrote_count,
+                status=status,
+                error=error,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=duration_ms(started_at, finished_at),
+            )
+            connection.commit()
+            result_rows.append(
+                {
+                    "game_key": game_key,
+                    "status": status,
+                    "wrote_count": wrote_count,
+                    "error": error,
+                }
+            )
+            total_wrote += wrote_count
 
     return {
         "provider": "cwl",

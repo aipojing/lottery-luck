@@ -145,6 +145,62 @@ def test_upsert_draw_is_idempotent_in_minimal_draws_table():
     assert rows[0][2] == "02"
 
 
+def test_upsert_draws_batches_rows_with_the_same_schema():
+    class BatchConnection:
+        def __init__(self):
+            self.batches = []
+
+        def execute(self, sql, parameters=()):
+            assert sql == "PRAGMA table_info(draws)"
+            return [(0, "game_key"), (1, "issue"), (2, "red_numbers")]
+
+        def executemany(self, sql, parameters):
+            self.batches.append((sql, list(parameters)))
+
+    connection = BatchConnection()
+    crawler.upsert_draws(
+        connection,
+        [
+            {"game_key": "ssq", "issue": "1", "red_numbers": "01"},
+            {"game_key": "ssq", "issue": "2", "red_numbers": "02"},
+        ],
+    )
+
+    assert len(connection.batches) == 1
+    assert connection.batches[0][1] == [
+        ("ssq", "1", "01"),
+        ("ssq", "2", "02"),
+    ]
+
+
+def test_upsert_new_draws_skips_existing_issues():
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        """
+        CREATE TABLE draws (
+            game_key TEXT,
+            issue TEXT,
+            red_numbers TEXT,
+            PRIMARY KEY (game_key, issue)
+        )
+        """
+    )
+    connection.execute("INSERT INTO draws VALUES ('ssq', '1', '01')")
+
+    wrote_count = crawler.upsert_new_draws(
+        connection,
+        [
+            {"game_key": "ssq", "issue": "1", "red_numbers": "09"},
+            {"game_key": "ssq", "issue": "2", "red_numbers": "02"},
+        ],
+    )
+
+    assert wrote_count == 1
+    assert connection.execute(
+        "SELECT issue, red_numbers FROM draws ORDER BY issue"
+    ).fetchall() == [("1", "01"), ("2", "02")]
+
+
 def test_upsert_draw_rejects_blank_issue():
     connection = sqlite3.connect(":memory:")
     connection.execute(

@@ -241,7 +241,7 @@ class SportsCrawlRequest(BaseModel):
     games: list[Literal["dlt", "pl3", "pl5"]] = Field(
         default_factory=lambda: ["dlt", "pl3", "pl5"]
     )
-    source: Literal["auto", "direct", "browser"] = "auto"
+    source: Literal["auto", "direct", "browser", "mirror"] = "auto"
     page_size: int = Field(default=30, ge=1, le=500)
     page_no: int = Field(default=1, ge=1)
     pages: int = Field(default=1, ge=1, le=20)
@@ -259,7 +259,7 @@ class CwlCrawlRequest(BaseModel):
 class AdminTaskRunRequest(BaseModel):
     provider: Literal["cwl", "sports"] = "cwl"
     games: list[str] = Field(default_factory=lambda: ["ssq", "3d", "kl8"])
-    source: Literal["auto", "direct", "browser"] = "auto"
+    source: Literal["auto", "direct", "browser", "mirror"] = "auto"
     page_size: int = Field(default=100, ge=1, le=500)
     pages: int = Field(default=1, ge=1, le=20)
     timeout_ms: int = Field(default=30000, ge=5000, le=180000)
@@ -301,6 +301,7 @@ def health(
         visible_keys = [key for key in FRONTEND_GAME_KEYS if key in games_by_key]
         crawl_logs = repo.recent_crawl_logs_by_game(visible_keys, limit_per_game=20)
     except Exception:
+        LOGGER.exception("health check database query failed")
         return {
             "status": "degraded",
             "service": "error",
@@ -665,7 +666,7 @@ def cron_crawl(
         sports_result = scheduler.run_once(
             provider="sports",
             games=PRODUCTION_CRON_SPORTS_GAMES,
-            source="direct",
+            source="mirror",
             page_size=100,
             page_no=1,
             pages=1,
