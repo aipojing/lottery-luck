@@ -9,3 +9,8 @@ __pycache__/
 output/playwright/
 frontend/.next/
 frontend/node_modules/
+.vercel/
+.env
+.env.local
+.env.*.local
+!.env.example

@@ -359,6 +359,7 @@ def test_root_serves_frontend_shell():
     assert "meta-divider" not in response.text
     assert 'href="./analysis.html' in response.text
     assert 'href="./privacy.html"' in response.text
+    assert 'rel="icon" href="./assets/black-gold-stone.png"' in response.text
     assert "隐私提示" not in response.text
     assert "第三方 AI" not in response.text
     assert "派生五行向量" not in response.text

@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import nextConfig from "../next.config.mjs";
 
 describe("legacy compatibility routes", () => {
+  it("leaves deployment output to Vercel's Next.js builder", () => {
+    expect(nextConfig).not.toHaveProperty("output");
+  });
+
   it("keeps product URLs stable", async () => {
     const rewrites = await nextConfig.rewrites();
     expect(rewrites.beforeFiles).toEqual(
