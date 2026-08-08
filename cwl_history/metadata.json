@@ -1,0 +1,58 @@
+{
+  "source_url": "https://www.cwl.gov.cn/ygkj/wqkjgg/",
+  "api_url": "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice",
+  "generated_at": "2026-06-15T05:53:58+00:00",
+  "games": [
+    {
+      "game_key": "ssq",
+      "game_name": "双色球",
+      "total_reported": 2025,
+      "rows_saved": 2025,
+      "page_size": 10000,
+      "pages_reported": 1,
+      "earliest_issue": "2013001",
+      "earliest_date": "2013-01-01",
+      "latest_issue": "2026067",
+      "latest_date": "2026-06-14"
+    },
+    {
+      "game_key": "kl8",
+      "game_name": "快乐8",
+      "total_reported": 1976,
+      "rows_saved": 1976,
+      "page_size": 10000,
+      "pages_reported": 1,
+      "earliest_issue": "2020001",
+      "earliest_date": "2020-10-28",
+      "latest_issue": "2026155",
+      "latest_date": "2026-06-14"
+    },
+    {
+      "game_key": "3d",
+      "game_name": "福彩3D",
+      "total_reported": 4660,
+      "rows_saved": 4660,
+      "page_size": 10000,
+      "pages_reported": 1,
+      "earliest_issue": "2013002",
+      "earliest_date": "2013-01-02",
+      "latest_issue": "2026155",
+      "latest_date": "2026-06-14"
+    },
+    {
+      "game_key": "qlc",
+      "game_name": "七乐彩",
+      "total_reported": 2025,
+      "rows_saved": 2025,
+      "page_size": 10000,
+      "pages_reported": 1,
+      "earliest_issue": "2013001",
+      "earliest_date": "2013-01-02",
+      "latest_issue": "2026066",
+      "latest_date": "2026-06-12"
+    }
+  ],
+  "draw_rows": 10686,
+  "prizegrade_rows": 138034,
+  "note": "Rows are the full result set returned by the official historical draw notice page API."
+}

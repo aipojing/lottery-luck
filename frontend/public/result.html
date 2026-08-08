@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>财运号详情 · 数运合参</title>
+    <link rel="stylesheet" href="./styles.css?v=20260618-fortune-v3-1" />
+  </head>
+  <body class="analysis-page result-page">
+    <main class="page-shell">
+      <header class="site-header compact">
+        <a class="brand-lockup" href="./">
+          <div>
+            <div class="brand-title">数运合参</div>
+            <div class="brand-subtitle"><span></span>方案复盘<span></span></div>
+          </div>
+        </a>
+        <div class="header-tools">
+          <div class="top-meta" aria-label="数据状态">
+            <span id="resultStatus">读取本地记录</span>
+          </div>
+          <nav class="header-nav" aria-label="页面目录">
+            <a class="page-link" href="./">预测首页</a>
+            <a class="page-link" href="./analysis.html?game=3d">数据分析</a>
+            <a class="page-link" href="./strategy.html?game=ssq">策略实验室</a>
+            <a class="page-link active" href="./result.html" aria-current="page">财运详情</a>
+            <a class="page-link" href="./privacy.html">隐私边界</a>
+          </nav>
+        </div>
+      </header>
+
+      <section class="result-detail-shell" id="resultDetail" aria-label="方案详情与复盘">
+        <div class="result-hero">
+          <div>
+            <p class="section-kicker">Plan Review</p>
+            <h1 id="resultTitle">方案详情与复盘</h1>
+            <p id="resultMeta">正在读取保存的方案。</p>
+          </div>
+          <div class="result-score result-status-badge">
+            <span>状态</span>
+            <strong id="resultBadge">--</strong>
+          </div>
+        </div>
+
+        <div class="responsible-note">
+          <strong>理性边界</strong>
+          <p>
+            仅供娱乐与数据分析参考，不构成投注建议；仅限成年人娱乐与数据分析参考，本产品不销售彩票，不承诺中奖或收益。
+            <a href="./privacy.html">查看隐私与 AI 数据边界</a>
+          </p>
+        </div>
+
+        <div class="result-actions" aria-label="方案动作">
+          <a class="secondary-action" id="workbenchAction" href="/analysis.html?game=3d">去工作台继续筛选</a>
+          <button class="secondary-action" id="reviewAction" type="button" disabled>开奖后可复盘</button>
+          <button class="primary-action" id="carryForwardAction" type="button" disabled>沿用到下一期</button>
+          <button class="text-action danger-action" id="deletePlanAction" type="button" disabled>删除方案</button>
+        </div>
+        <p class="result-feedback" id="resultFeedback" aria-live="polite" hidden></p>
+
+        <div class="result-summary-band" id="resultSummary" aria-label="方案摘要"></div>
+
+        <section class="result-band" aria-label="号码组">
+          <div class="analysis-card-head">
+            <h2>号码组</h2>
+            <span>全部保存条目</span>
+          </div>
+          <div class="result-number-stage" id="resultNumbers"></div>
+        </section>
+
+        <div class="result-grid">
+          <article class="analysis-card result-wide">
+            <div class="analysis-card-head">
+              <h2>保存快照</h2>
+              <span>窗口 / 条件 / 指标</span>
+            </div>
+            <div class="snapshot-panel" id="resultSnapshot"></div>
+          </article>
+
+          <article class="analysis-card result-wide">
+            <div class="analysis-card-head">
+              <h2>复盘结果</h2>
+              <span>开奖后更新</span>
+            </div>
+            <div class="result-review" id="resultReview">等待开奖数据更新后复盘。</div>
+          </article>
+        </div>
+
+        <div class="result-grid fortune-compat-grid" id="fortuneSection">
+          <article class="analysis-card result-wide">
+            <div class="analysis-card-head">
+              <h2>大师起盘</h2>
+              <span>命盘 / 财局 / 尾数 / 落号</span>
+            </div>
+            <div class="result-master-ritual" id="resultMasterRitual">
+              <strong>等待起盘记录。</strong>
+              <p>从我的历史财运号中选择一条记录后显示。</p>
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <div class="analysis-card-head">
+              <h2>为什么适合你</h2>
+              <span>闭环解释</span>
+            </div>
+            <ol class="result-loop" id="resultLoop"></ol>
+          </article>
+
+          <article class="analysis-card">
+            <div class="analysis-card-head">
+              <h2>财眼与尾数</h2>
+              <span>喜用映射</span>
+            </div>
+            <div id="resultFortuneEye"></div>
+            <div class="tail-map" id="resultTailMap"></div>
+          </article>
+
+          <article class="analysis-card result-wide">
+            <div class="analysis-card-head">
+              <h2>号码释义</h2>
+              <span>逐号拆解</span>
+            </div>
+            <ul class="reason-list result-reasons" id="resultReasons"></ul>
+          </article>
+
+          <article class="analysis-card">
+            <div class="analysis-card-head">
+              <h2>分享海报</h2>
+              <span>本地生成</span>
+            </div>
+            <canvas id="posterCanvas" width="720" height="1080" aria-label="分享海报预览"></canvas>
+            <a class="poster-download" id="posterDownload" download="fortune-number.png">下载海报</a>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script src="./product-client.js?v=20260713-product-client-v2"></script>
+    <script src="./result.js?v=20260618-fortune-v3-1"></script>
+  </body>
+</html>

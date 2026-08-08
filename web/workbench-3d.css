@@ -1,0 +1,1163 @@
+:root {
+  /* Minimum comfortable touch target for every interactive control in the toolbox — and for
+     the shell controls the toolbox compacts on a phone, which live outside #threeDToolbox. */
+  --three-d-tap-target: 40px;
+}
+
+#threeDToolbox {
+  /* Secondary text (tool descriptions, table headers, legends). The site-wide --quiet
+     (#806335) only reaches 3.7:1 on this near-black surface, below the 4.5:1 WCAG AA floor
+     for text this small; this tone keeps the same hierarchy at 6.4:1. */
+  --three-d-quiet: #a98d59;
+
+  /* Type scale. The toolbox has two dominant elements and everything else is support:
+     on the home screen the page title, and inside a tool the tool's own title and its data.
+     The shared .analysis-title (clamp(34px, 4vw, 56px)) was built for the prediction pages
+     and dwarfed both, so the toolbox sets its own top of the scale here and every size in
+     this file is taken from these tokens instead of a loose px value. */
+  --three-d-font-page-title: clamp(26px, 2.6vw, 36px);
+  --three-d-font-tool-title: 20px;
+  --three-d-font-data: 13px;
+  --three-d-font-meta: 12px;
+  --three-d-font-micro: 11px;
+  width: min(1220px, calc(100% - 76px));
+  margin: 34px auto 0;
+  border-top: 1px solid rgba(214, 169, 88, 0.24);
+  padding-top: 32px;
+}
+
+/* The toolbox title is the top of the toolbox's own scale, not of the prediction pages'. */
+#threeDToolbox .analysis-title {
+  font-size: var(--three-d-font-page-title);
+  line-height: 1.2;
+}
+
+/* ── Tool view ───────────────────────────────────────────────────────────────────────────
+   With a tool open, the toolbox-home chrome (kicker, page title, home subtitle, plan strip)
+   is content the reader did not ask for: it pushed the tool's own data most of a screen down.
+   `is-tool-open` is set by three-d-toolbox.js exactly while #threeDToolWorkspace is shown. */
+#threeDToolbox.is-tool-open .three-d-toolbox-head .section-kicker,
+#threeDToolbox.is-tool-open .three-d-toolbox-head .three-d-disclaimer,
+#threeDToolbox.is-tool-open .three-d-toolbox-head .three-d-history-link {
+  display: none;
+}
+
+/* The page heading is never deleted, only taken out of the visual flow: a screen reader still
+   reads 福彩3D工具箱 (h1) followed by the tool's own title (h2). 历史方案 and the disclaimer are
+   not lost with it — the issue band keeps the link, and every tool panel states its own
+   disclaimer on a visible line. */
+#threeDToolbox.is-tool-open .three-d-toolbox-head .analysis-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+#threeDToolbox.is-tool-open .three-d-toolbox-head {
+  gap: 0;
+}
+
+/* The plan strip is current-issue plan context for the home screen. Saving from inside a tool
+   keeps working — the reduction panel states its own save result next to the button. */
+#threeDToolbox.is-tool-open .three-d-plan-strip {
+  display: none;
+}
+
+/* The issue band stays — the data date and the "数据待更新" reason are honesty guarantees —
+   but it collapses onto one tight line, with 重试 sitting on it instead of under it. */
+#threeDToolbox.is-tool-open .three-d-status-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 12px;
+  padding: 8px 12px;
+}
+
+#threeDToolbox.is-tool-open .three-d-status-actions {
+  margin-top: 0;
+}
+
+/* A sync or load error is a sentence, not a chip: it keeps its own row inside the band. */
+#threeDToolbox.is-tool-open .three-d-status-band > .three-d-tool-status {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+#threeDToolbox.is-tool-open .three-d-tool-workspace {
+  margin-top: 14px;
+}
+
+/* The shared .mini-action is 30px tall; inside the toolbox it is a mobile tap target. */
+.three-d-toolbox .mini-action {
+  min-height: var(--three-d-tap-target);
+}
+
+.three-d-toolbox-head,
+.three-d-band-head,
+.three-d-candidate-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.three-d-title-block {
+  min-width: 0;
+}
+
+.three-d-history-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: var(--three-d-tap-target);
+  border: 1px solid rgba(214, 169, 88, 0.32);
+  border-radius: 5px;
+  color: var(--gold-soft);
+  background: rgba(7, 6, 4, 0.56);
+  padding: 0 12px;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.three-d-disclaimer {
+  margin: 12px 0 0;
+  color: #c8a568;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.three-d-window-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  border: 1px solid rgba(214, 169, 88, 0.28);
+  border-radius: 7px;
+  background: rgba(7, 6, 4, 0.62);
+  padding: 5px;
+}
+
+.three-d-window-tabs[hidden] {
+  display: none;
+}
+
+.three-d-window-tabs button {
+  min-width: 78px;
+  min-height: var(--three-d-tap-target);
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted);
+  background: transparent;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.three-d-window-tabs button[aria-pressed="true"] {
+  color: #1b1002;
+  background: linear-gradient(180deg, #f1d589, #bd802b);
+  box-shadow: 0 6px 18px rgba(188, 121, 33, 0.18);
+}
+
+.three-d-window-tabs button:focus-visible,
+#threeDToolbox button:focus-visible,
+#threeDToolbox input:focus-visible,
+#threeDToolbox a:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.three-d-status-band,
+.three-d-plan-strip,
+.three-d-tool-panel {
+  border: 1px solid rgba(214, 169, 88, 0.18);
+  background:
+    linear-gradient(180deg, rgba(30, 22, 12, 0.46), rgba(6, 5, 3, 0.74)),
+    rgba(6, 5, 3, 0.72);
+}
+
+.three-d-status-band,
+.three-d-plan-strip {
+  margin-top: 16px;
+  padding: 13px 16px;
+  color: #c8a568;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.three-d-status-band.is-error,
+.three-d-tool-status.is-error,
+.three-d-result.is-error {
+  color: #e7a187;
+}
+
+.three-d-status-line,
+.three-d-plan-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.three-d-status-line strong,
+.three-d-plan-line strong {
+  color: var(--gold-pale);
+  font-weight: 500;
+}
+
+.three-d-status-actions,
+.three-d-plan-actions,
+.three-d-pending-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Links in the status and plan strips are tapped with the same thumb as the buttons
+   next to them, so they carry the same touch floor. */
+.three-d-status-actions a,
+.three-d-status-actions button,
+.three-d-plan-actions a,
+.three-d-plan-actions button,
+.three-d-pending-list button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--three-d-tap-target);
+  border: 1px solid rgba(214, 169, 88, 0.32);
+  border-radius: 5px;
+  color: var(--gold-soft);
+  background: rgba(7, 6, 4, 0.56);
+  padding: 0 10px;
+  text-decoration: none;
+}
+
+.three-d-tool-home {
+  display: grid;
+  gap: 26px;
+  margin-top: 22px;
+}
+
+.three-d-tool-group {
+  min-width: 0;
+}
+
+/* The four groups hold 4 / 2 / 1 / 1 tools. A fixed 4-column grid gives the short groups
+   empty cells, and since the cell borders are painted by the grid those cells read as
+   bordered dead space ("超长空白"). Flex wrapping instead lets every row grow into the
+   width it has, so a row is always full and there is never an empty cell to draw: the
+   basis caps a row at 4 tiles (100 / 22), and the mobile basis below caps it at 2. */
+.three-d-tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  border-block-start: 1px solid var(--line);
+  border-inline-start: 1px solid var(--line);
+  margin-top: 12px;
+}
+
+.three-d-tool-tile {
+  display: flex;
+  flex: 1 1 22%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 132px;
+  border: 0;
+  border-radius: 0;
+  border-inline-end: 1px solid var(--line);
+  border-block-end: 1px solid var(--line);
+  color: var(--gold-pale);
+  background: rgba(6, 5, 3, 0.5);
+  padding: 16px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.three-d-tool-tile:hover {
+  background: rgba(30, 22, 12, 0.6);
+}
+
+/* The Lucide files draw with `stroke="currentColor"`, which paints black inside an <img>.
+   They are used as masks instead, so the gold below is what the user actually sees. */
+.three-d-icon {
+  display: block;
+  flex-shrink: 0;
+  width: var(--three-d-icon-size, 28px);
+  height: var(--three-d-icon-size, 28px);
+  background-color: var(--gold);
+  -webkit-mask-image: var(--three-d-icon-url);
+  mask-image: var(--three-d-icon-url);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.three-d-icon-back {
+  --three-d-icon-size: 20px;
+  --three-d-icon-url: url("./assets/icons/arrow-left.svg");
+}
+
+.three-d-tool-tile strong {
+  color: var(--gold);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.three-d-tool-tile span {
+  color: var(--three-d-quiet);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.three-d-tool-workspace {
+  margin-top: 22px;
+}
+
+.three-d-workspace-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.three-d-workspace-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.three-d-workspace-title p {
+  margin: 0;
+  color: var(--three-d-quiet);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+.three-d-tool-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--three-d-tap-target);
+  min-height: var(--three-d-tap-target);
+  border: 1px solid rgba(214, 169, 88, 0.32);
+  border-radius: 6px;
+  background: rgba(7, 6, 4, 0.56);
+  cursor: pointer;
+}
+
+
+.three-d-tool-panels {
+  margin-top: 16px;
+}
+
+.three-d-tool-panel {
+  min-width: 0;
+  padding: 17px;
+}
+
+.three-d-tool-panel[hidden] {
+  display: none;
+}
+
+.three-d-tool-group h2,
+.three-d-band-head h3 {
+  margin: 0;
+  color: var(--gold);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Inside a tool this is the visible heading of the view, so it carries the weight the page
+   title carries on the home screen. */
+.three-d-workspace-title h2 {
+  margin: 0;
+  color: var(--gold);
+  font-size: var(--three-d-font-tool-title);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.three-d-band-head span,
+.three-d-candidate-toolbar span {
+  color: var(--three-d-quiet);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.three-d-inline-form,
+.three-d-filter-form,
+.three-d-position-filters {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.three-d-inline-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+/* The reduction form reads as three control groups stacked in one column. */
+.three-d-filter-form {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.three-d-filter-form .tool-action {
+  align-self: end;
+  justify-self: start;
+}
+
+/* The panel is the only box the reduction form is allowed to draw. The fieldsets keep the
+   grouping (and their legends keep naming it for a screen reader), but they are labelled
+   sections, not cards: a bordered fieldset inside the bordered panel — and the check
+   fieldsets inside that — is the "卡片嵌套" the visual rules forbid. */
+.three-d-filter-group {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+.three-d-filter-group > legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: #c8a568;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.three-d-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.three-d-filter-fields-shape {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.three-d-filter-group .three-d-position-filters {
+  margin: 0;
+}
+
+/* The reduction scale is the headline of a result: the space in, the survivors out. */
+.three-d-reduction-scale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 10px;
+}
+
+.three-d-reduction-scale span {
+  color: #cdb075;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+.three-d-reduction-scale span:nth-child(2) {
+  color: #e8c887;
+  font-weight: 600;
+}
+
+#threeDToolbox label,
+.three-d-checks {
+  min-width: 0;
+}
+
+#threeDToolbox input {
+  min-height: 40px;
+  padding: 0 12px;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+}
+
+#threeDToolbox button[disabled],
+#threeDToolbox input[disabled] {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.three-d-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+/* Same rule one level down: the check groups are labelled rows, not boxes inside boxes. */
+.three-d-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  margin: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+.three-d-checks legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--three-d-quiet);
+  font-size: 12px;
+}
+
+.three-d-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #c8a568;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+.three-d-checks input {
+  width: 15px;
+  min-height: 15px;
+  accent-color: #d6a958;
+}
+
+.three-d-candidate-toolbar {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(214, 169, 88, 0.13);
+}
+
+.three-d-result,
+.three-d-tool-status,
+.three-d-tool-definition,
+.three-d-scroll-hint {
+  margin: 12px 0 0;
+  color: #cdb075;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: var(--three-d-font-meta);
+  line-height: 1.65;
+}
+
+.three-d-candidate-list,
+.three-d-heat-list,
+.three-d-draw-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.three-d-candidate-list {
+  margin-top: 10px;
+}
+
+.three-d-candidate-list li,
+.three-d-draw-list li,
+.three-d-heat-list li {
+  min-width: 0;
+  border: 1px solid rgba(214, 169, 88, 0.12);
+  border-radius: 6px;
+  background: rgba(6, 5, 3, 0.3);
+}
+
+.three-d-candidate-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 0.3fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+}
+
+.three-d-candidate-list input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: #d6a958;
+}
+
+.three-d-candidate-list b,
+.three-d-draw-list b {
+  color: var(--gold-pale);
+  font-weight: 500;
+}
+
+.three-d-candidate-list span,
+.three-d-draw-list span {
+  min-width: 0;
+  color: #b99a61;
+  overflow-wrap: anywhere;
+}
+
+
+.three-d-fact-lead {
+  margin: 0 0 10px;
+  color: var(--gold-pale);
+  font-size: 15px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.three-d-fact-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.three-d-fact-list li {
+  min-width: 0;
+  border: 1px solid rgba(214, 169, 88, 0.12);
+  border-radius: 6px;
+  background: rgba(6, 5, 3, 0.26);
+  padding: 8px 10px;
+  color: var(--gold-soft);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.three-d-fact-note,
+.three-d-fact-meta {
+  margin: 0 0 6px;
+  color: #b99a61;
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.three-d-fact-meta {
+  margin-bottom: 0;
+  color: #9c8352;
+}
+
+/* `hidden` must keep winning: an unconditional display would show an empty feedback line. */
+.three-d-tool-status[data-tool-feedback]:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+
+.three-d-draw-list {
+  margin-top: 14px;
+}
+
+.three-d-draw-list li {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.6fr) minmax(90px, 0.4fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  color: #b99a61;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+.three-d-professional {
+  margin-top: 18px;
+  padding: 17px;
+}
+
+.three-d-position-filters {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.three-d-pro-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.three-d-heat {
+  grid-column: 1 / -1;
+}
+
+.three-d-matrix {
+  min-width: 0;
+}
+
+.three-d-matrix h3 {
+  margin-bottom: 10px;
+  color: var(--gold-soft);
+  font-size: 14px;
+}
+
+.three-d-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(214, 169, 88, 0.12);
+  background: rgba(6, 5, 3, 0.24);
+}
+
+/* The data is what the reader opened the tool for, so it reads one step above the meta. */
+.three-d-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  color: #cdb075;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: var(--three-d-font-data);
+}
+
+.three-d-table th,
+.three-d-table td {
+  border-bottom: 1px solid rgba(214, 169, 88, 0.1);
+  padding: 8px 7px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.three-d-table th {
+  color: var(--three-d-quiet);
+  font-weight: 500;
+}
+
+.three-d-table tbody th {
+  color: var(--gold);
+  text-align: left;
+}
+
+.three-d-table td strong {
+  display: block;
+  color: var(--gold-soft);
+  font-weight: 500;
+}
+
+.three-d-table td span {
+  display: block;
+  color: #a9864e;
+  font-size: var(--three-d-font-micro);
+}
+
+/* The tool's statement of what it computes. The summary carries the line the reader may not
+   have to work for — window, real sample, latest data date, disclaimer — and the mechanics of
+   the statistic sit behind 说明, so three lines of prose no longer stand between the reader
+   and the table. */
+.three-d-tool-definition {
+  margin: 0 0 10px;
+  border-left: 2px solid rgba(214, 169, 88, 0.3);
+  padding-left: 10px;
+}
+
+.three-d-tool-definition[hidden] {
+  display: none;
+}
+
+.three-d-tool-definition > summary {
+  display: list-item;
+  min-height: var(--three-d-tap-target);
+  padding: 9px 0;
+  color: var(--three-d-quiet);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: var(--three-d-font-meta);
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.three-d-tool-definition > summary:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.three-d-definition-meta {
+  color: #cdb075;
+}
+
+.three-d-definition-toggle {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--gold-soft);
+  white-space: nowrap;
+}
+
+.three-d-definition-body {
+  margin: 0 0 10px;
+  color: var(--three-d-quiet);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: var(--three-d-font-meta);
+  line-height: 1.7;
+}
+
+/* Desktop shows the whole trend table; the affordance only matters once it scrolls. */
+.three-d-scroll-hint {
+  display: none;
+  margin: 0 0 8px;
+}
+
+.three-d-trend-table {
+  min-width: 560px;
+}
+
+.three-d-trend-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(9, 7, 4, 0.94);
+}
+
+.three-d-trend-digit strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(214, 169, 88, 0.35);
+  border-radius: 999px;
+  background: rgba(7, 6, 4, 0.6);
+  color: var(--gold-soft);
+  font-weight: 500;
+}
+
+.three-d-trend-digit span {
+  margin-top: 3px;
+}
+
+.three-d-heat-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.three-d-heat-list li {
+  padding: 10px;
+}
+
+.three-d-heat-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.three-d-heat-group b {
+  min-width: 22px;
+  color: var(--gold);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.three-d-heat-chip {
+  display: inline-flex;
+  border: 1px solid rgba(214, 169, 88, 0.18);
+  border-radius: 999px;
+  background: rgba(7, 6, 4, 0.55);
+  padding: 3px 7px;
+  color: var(--gold-soft);
+  font-size: 11px;
+}
+
+.three-d-heat-empty {
+  color: #a9864e;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.three-d-heat-list strong {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.three-d-heat-list span {
+  display: inline-flex;
+  margin: 0 5px 6px 0;
+  border: 1px solid rgba(214, 169, 88, 0.18);
+  border-radius: 999px;
+  color: var(--gold-soft);
+  background: rgba(7, 6, 4, 0.55);
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+@media (max-width: 1120px) {
+  #threeDToolbox {
+    width: 100%;
+  }
+
+  .three-d-position-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .three-d-filter-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  /* Two tiles per row (100 / 45), and a short group still fills its row instead of
+     leaving an empty bordered cell. */
+  .three-d-tool-tile {
+    flex-basis: 45%;
+    min-height: 108px;
+  }
+}
+
+@media (max-width: 780px) {
+  .three-d-toolbox-head,
+  .three-d-band-head,
+  .three-d-candidate-toolbar {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .three-d-window-tabs {
+    width: 100%;
+  }
+
+  .three-d-window-tabs button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .three-d-inline-form,
+  .three-d-filter-form,
+  .three-d-filter-fields,
+  .three-d-filter-fields-shape,
+  .three-d-position-filters,
+  .three-d-fact-list,
+  .three-d-heat-list {
+    grid-template-columns: 1fr;
+  }
+
+  /* The trend table is wider than a phone: say so, and make the scroll edge visible. */
+  .three-d-scroll-hint {
+    display: block;
+  }
+
+  .three-d-scroll {
+    border-right: 2px solid rgba(214, 169, 88, 0.32);
+  }
+
+  .three-d-action-row,
+  .three-d-action-row .tool-action,
+  .three-d-filter-form .tool-action,
+  .three-d-candidate-toolbar .tool-action {
+    width: 100%;
+  }
+
+  .three-d-candidate-list li,
+  .three-d-draw-list li {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  #threeDToolbox {
+    width: min(100% - 20px, 440px);
+    padding-top: 24px;
+  }
+
+  .three-d-status-band,
+  .three-d-plan-strip,
+  .three-d-tool-panel {
+    padding: 13px;
+  }
+
+  .three-d-window-tabs button {
+    /* Keep the 40px touch floor on narrow screens; only the label shrinks. */
+    min-height: var(--three-d-tap-target);
+    font-size: 12px;
+  }
+}
+
+/* Mobile first screen (release gate): at 390px the draw status and at least 6 tool entries
+   must be readable without scrolling. Before this block the shared shell alone ate 492px of
+   the 844px fold (site header 202px + stacked game tabs 290px) and no tool reached it.
+
+   Everything here is scoped to `body.three-d-toolbox-active`, a class only the 3D toolbox
+   sets (workbench-3d.js). The prediction home, the ssq analysis view, the strategy page and
+   the compact-header pages keep the shared shell exactly as it is. Tool tiles stay far above
+   the 40px touch floor and the status band is never hidden — only chrome is compacted. */
+@media (max-width: 560px) {
+  body.three-d-toolbox-active .page-shell {
+    padding-top: 14px;
+  }
+
+  body.three-d-toolbox-active .site-header {
+    gap: 10px;
+  }
+
+  body.three-d-toolbox-active .brand-title {
+    font-size: 24px;
+    line-height: 1.1;
+  }
+
+  body.three-d-toolbox-active .brand-seal {
+    width: 18px;
+    height: 22px;
+    margin-top: 2px;
+    font-size: 12px;
+  }
+
+  /* The decorative tagline and the header data line both cost a row each; the toolbox's own
+     status band states the same data date with the issue number next to it. */
+  body.three-d-toolbox-active .brand-subtitle,
+  body.three-d-toolbox-active .top-meta {
+    display: none;
+  }
+
+  body.three-d-toolbox-active .header-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+  }
+
+  body.three-d-toolbox-active .header-nav .page-link {
+    min-height: var(--three-d-tap-target);
+    padding: 0 6px;
+    font-size: 14px;
+  }
+
+  /* Five games stacked as full-width buttons cost 290px. One scrollable row costs ~48px and
+     keeps every game reachable, with the 40px touch floor intact. */
+  body.three-d-toolbox-active .game-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    margin: 12px auto 0;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  body.three-d-toolbox-active .game-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.three-d-toolbox-active .tab-button,
+  body.three-d-toolbox-active .tab-button:first-child {
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: var(--three-d-tap-target);
+    padding: 8px 14px;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  body.three-d-toolbox-active #threeDToolbox {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+
+  /* Head: the kicker repeats the h1, and the history link is reachable from the status band
+     and the plan strip (both keep theirs), so the head is a title + its disclaimer. */
+  body.three-d-toolbox-active .three-d-toolbox-head .section-kicker,
+  body.three-d-toolbox-active .three-d-toolbox-head .three-d-history-link {
+    display: none;
+  }
+
+  body.three-d-toolbox-active .three-d-toolbox-head .analysis-title {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+
+  body.three-d-toolbox-active .three-d-disclaimer {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  body.three-d-toolbox-active .three-d-status-band,
+  body.three-d-toolbox-active .three-d-plan-strip {
+    margin-top: 10px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  body.three-d-toolbox-active .three-d-status-line,
+  body.three-d-toolbox-active .three-d-plan-line {
+    gap: 4px 10px;
+  }
+
+  body.three-d-toolbox-active .three-d-status-actions,
+  body.three-d-toolbox-active .three-d-plan-actions {
+    margin-top: 8px;
+  }
+
+  body.three-d-toolbox-active .three-d-tool-home {
+    gap: 14px;
+    margin-top: 12px;
+  }
+
+  body.three-d-toolbox-active .three-d-tool-group h2 {
+    margin: 0;
+    font-size: 15px;
+  }
+
+  body.three-d-toolbox-active .three-d-tool-grid {
+    margin-top: 6px;
+  }
+
+  /* Denser tiles, never smaller than the touch floor: icon + name + description all stay. */
+  body.three-d-toolbox-active .three-d-tool-tile {
+    gap: 4px;
+    min-height: 92px;
+    padding: 10px;
+  }
+
+  body.three-d-toolbox-active .three-d-tool-tile .three-d-icon {
+    --three-d-icon-size: 20px;
+  }
+
+  body.three-d-toolbox-active .three-d-tool-tile strong {
+    font-size: 14px;
+  }
+
+  body.three-d-toolbox-active .three-d-tool-tile span {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .three-d-toolbox *,
+  .three-d-toolbox *::before,
+  .three-d-toolbox *::after {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

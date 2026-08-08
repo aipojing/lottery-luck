@@ -1,0 +1,21 @@
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  color: #f4dfaa;
+  background: #030303;
+  font-family:
+    "Songti SC", "STSong", "Noto Serif CJK SC", "Noto Serif SC",
+    "PingFang SC", "Microsoft YaHei", serif;
+}
+
+main {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+
+a {
+  color: #f6d489;
+}

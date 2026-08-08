@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>数运合参 · 玄金私享盘</title>
+    <link rel="stylesheet" href="./styles.css?v=20260808-home-cleanup-v1" />
+    <link rel="stylesheet" href="./motion.css?v=20260712-cinematic-v1" />
+  </head>
+  <body class="home-page">
+    <noscript>
+      <section class="noscript-panel" role="alert">
+        <strong>需要启用 JavaScript 才能起盘</strong>
+        <p>本页的起盘、号码渲染与历史保存依赖 JavaScript。请启用后刷新页面。</p>
+      </section>
+    </noscript>
+    <main class="page-shell">
+      <header class="site-header" aria-label="页面信息">
+        <a class="brand" href="/" aria-label="数运合参首页">
+          <span class="brand-line">
+            <span class="brand-title">数运合参</span>
+            <span class="brand-seal" aria-hidden="true">测</span>
+          </span>
+          <span class="brand-subtitle">
+            <span aria-hidden="true"></span>
+            玄 金 私 享 盘
+            <span aria-hidden="true"></span>
+          </span>
+        </a>
+
+        <div class="header-tools">
+          <div class="top-meta" aria-label="数据状态" hidden>
+            <span id="latestDate">数据更新：--</span>
+            <span id="apiStatus" role="status">娱乐推荐</span>
+          </div>
+          <nav class="header-nav" aria-label="页面目录">
+            <a class="page-link active" href="./" aria-current="page">预测首页</a>
+            <a class="page-link" id="analysisEntry" href="./analysis.html?game=ssq">数据分析</a>
+            <a class="page-link" id="strategyEntry" href="./strategy.html?game=ssq">策略实验室</a>
+          </nav>
+        </div>
+      </header>
+
+      <nav class="game-tabs" id="gameTabs" aria-label="彩种切换"></nav>
+
+      <section
+        class="ritual-stage"
+        id="ritualStage"
+        data-motion-state="idle"
+        aria-hidden="true"
+        aria-label="起盘进度"
+      >
+        <div class="ritual-stage-dial primary" aria-hidden="true"></div>
+        <div class="ritual-stage-dial secondary" aria-hidden="true"></div>
+        <div class="ritual-stage-copy">
+          <p class="ritual-stage-status" id="motionStatus" role="status">等待开始起盘</p>
+          <h2 id="motionTitle">命盘待入局</h2>
+          <div class="ritual-stage-progress" aria-hidden="true">
+            <i id="motionProgress"></i>
+          </div>
+          <ol class="ritual-stage-steps" id="motionSteps"></ol>
+          <div class="ritual-stage-numbers" id="motionNumbers" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <section class="oracle-board is-idle" aria-live="polite">
+        <div class="compass-mark" aria-hidden="true">
+          <span class="direction north">北</span>
+          <span class="direction west">西</span>
+          <span class="direction east">东</span>
+        </div>
+
+        <div class="oracle-copy">
+          <span class="sr-only" id="fortuneNumber"></span>
+          <div class="oracle-title-line">
+            <h1>今日财运号</h1>
+            <span class="oracle-seal" aria-hidden="true">吉</span>
+          </div>
+          <p class="oracle-date" id="bestDate">输入生辰，起一盘属于你的号码</p>
+          <p class="oracle-subtitle">
+            <span id="latestIssue">最新期号 --</span>
+            <span>未来30天最佳开奖日</span>
+          </p>
+          <p class="score-label">财运指数</p>
+          <strong class="score-value" id="luckScore"></strong>
+        </div>
+
+        <div class="numbers-stage" aria-label="推荐号码">
+          <div class="numbers" id="numberBalls"></div>
+        </div>
+
+        <p class="board-disclaimer" id="disclaimer">仅供娱乐参考，请理性看待结果。</p>
+      </section>
+
+      <form class="control-panel" id="predictForm">
+        <label>
+          <span>姓名</span>
+          <input name="name" autocomplete="name" required />
+        </label>
+        <label>
+          <span>历法</span>
+          <input type="hidden" name="calendar_type" value="solar" />
+          <div class="custom-select" data-select-name="calendar_type">
+            <button
+              class="custom-select-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+            >
+              <span>阳历 / 公历</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div class="custom-select-menu" role="listbox" hidden>
+              <button class="custom-select-option active" type="button" role="option" data-value="solar">
+                阳历 / 公历
+              </button>
+              <button class="custom-select-option" type="button" role="option" data-value="lunar">
+                阴历 / 农历
+              </button>
+            </div>
+          </div>
+        </label>
+        <label>
+          <span>出生日期</span>
+          <input name="birth_date" type="date" required />
+        </label>
+        <label>
+          <span>时辰</span>
+          <input type="hidden" name="birth_hour" value="" />
+          <div class="custom-select" data-select-name="birth_hour">
+            <button
+              class="custom-select-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-required="true"
+            >
+              <span>请选择出生时辰</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div class="custom-select-menu long" role="listbox" hidden>
+              <button class="custom-select-option" type="button" role="option" data-value="unknown">未知</button>
+              <button class="custom-select-option" type="button" role="option" data-value="子">子时 23:00-01:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="丑">丑时 01:00-03:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="寅">寅时 03:00-05:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="卯">卯时 05:00-07:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="辰">辰时 07:00-09:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="巳">巳时 09:00-11:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="午">午时 11:00-13:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="未">未时 13:00-15:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="申">申时 15:00-17:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="酉">酉时 17:00-19:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="戌">戌时 19:00-21:00</button>
+              <button class="custom-select-option" type="button" role="option" data-value="亥">亥时 21:00-23:00</button>
+            </div>
+          </div>
+        </label>
+        <label>
+          <span>出生地</span>
+          <input name="birth_place" autocomplete="address-level2" required />
+        </label>
+        <label>
+          <span>当前城市</span>
+          <input name="current_city" autocomplete="address-level2" required />
+        </label>
+        <fieldset class="mode-selector" aria-label="生成模式">
+          <legend>生成模式</legend>
+          <input type="hidden" name="fortune_mode" value="steady" />
+          <div class="mode-options" id="fortuneModeOptions">
+            <button class="mode-option active" type="button" data-mode="steady" aria-pressed="true">
+              <strong>稳财号</strong>
+              <span>均衡合参</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="windfall" aria-pressed="false">
+              <strong>偏财号</strong>
+              <span>顺势变化</span>
+            </button>
+            <button class="mode-option" type="button" data-mode="guard" aria-pressed="false">
+              <strong>守财号</strong>
+              <span>收口保守</span>
+            </button>
+          </div>
+        </fieldset>
+        <button class="primary-action" type="submit" id="submitButton">
+          <span>开始起盘</span>
+          <span aria-hidden="true">→</span>
+        </button>
+        <output class="generate-feedback" id="generateFeedback" aria-live="polite"></output>
+      </form>
+
+      <div class="prediction-results" id="predictionResults" hidden>
+      <section class="fortune-ritual-panel" data-motion-reveal aria-label="今日财签与起盘过程">
+        <article class="daily-fortune-sign" id="dailyFortuneSign" aria-live="polite">
+          <div>
+            <p class="section-kicker">今日财签</p>
+            <strong>今日财位、旺时和宜避尾数</strong>
+          </div>
+          <div class="fortune-sign-tags" aria-label="财签标签">
+            <span>今日财位</span>
+            <span>今日旺时</span>
+            <span>宜避尾数</span>
+          </div>
+        </article>
+        <article class="ritual-panel" aria-label="起盘过程">
+          <div class="basis-head">
+            <p>起盘过程</p>
+            <span id="ritualStatus">本次起盘步骤</span>
+          </div>
+          <div
+            class="ritual-progress"
+            id="ritualProgress"
+            aria-hidden="true"
+            style="--ritual-progress: 0"
+          ></div>
+          <div class="ritual-steps" id="ritualSteps" aria-live="polite">
+            <div class="ritual-step">
+              <span>1</span>
+              <strong>定本命财盘</strong>
+              <small>按个人信息确定基础盘。</small>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="fortune-hook" data-motion-reveal aria-label="今日财势">
+        <div class="fortune-hook-copy">
+          <p class="section-kicker">今日财势</p>
+          <h2 id="fortuneHeadline">本次结果已清空</h2>
+          <p id="fortuneSubline">重新填写信息即可生成新的参考。</p>
+          <div class="fortune-tags" id="fortuneTags">
+            <span>本命财格</span>
+            <span>今日宜忌</span>
+          </div>
+        </div>
+        <dl class="fortune-profile" id="metaphysicsProfile">
+          <div>
+            <dt>本命财格</dt>
+            <dd>--</dd>
+          </div>
+          <div>
+            <dt>今日宜忌</dt>
+            <dd>--</dd>
+          </div>
+          <div>
+            <dt>取号逻辑</dt>
+            <dd>--</dd>
+          </div>
+        </dl>
+        <div class="avoid-panel">
+          <span>本期避开</span>
+          <div class="avoid-list" id="avoidNumbers">--</div>
+        </div>
+      </section>
+
+      <section class="master-ritual-panel" data-motion-reveal aria-label="取号思路">
+        <div class="basis-head">
+          <p>取号思路</p>
+          <span>这组号码是怎么来的</span>
+        </div>
+        <div class="master-ritual" id="masterRitual" aria-live="polite">
+          <strong>本次暂无取号说明。</strong>
+          <p>重新起盘后查看完整思路。</p>
+        </div>
+      </section>
+
+      <section class="credibility-panel" data-motion-reveal aria-label="为什么是这组号码">
+        <div class="basis-head">
+          <p>为什么是这组号码</p>
+          <span>依据逐项展开</span>
+        </div>
+        <ol class="credibility-chain" id="credibilityChain">
+          <li>本次暂无详细依据。</li>
+        </ol>
+      </section>
+
+      <section class="interpretation-panel" data-motion-reveal aria-label="今日解读">
+        <div class="basis-head">
+          <p>今日解读</p>
+          <span>一句话重点</span>
+        </div>
+        <div class="interpretation-layers" id="interpretationLayers">
+          <strong>本次暂无解读。</strong>
+          <p>重新起盘后查看完整内容。</p>
+        </div>
+      </section>
+
+      <section class="formula-strip" aria-label="计算构成" hidden>
+        <div class="formula-item">
+          <span class="formula-icon" aria-hidden="true">命</span>
+          <span>个人时空 40%</span>
+        </div>
+        <span class="formula-dot" aria-hidden="true"></span>
+        <div class="formula-item">
+          <span class="formula-icon" aria-hidden="true">AI</span>
+          <span>命理合参 25%</span>
+        </div>
+        <span class="formula-dot" aria-hidden="true"></span>
+        <div class="formula-item">
+          <span class="formula-icon" aria-hidden="true">择</span>
+          <span>开奖日运势 20%</span>
+        </div>
+        <span class="formula-dot" aria-hidden="true"></span>
+        <div class="formula-item">
+          <span class="formula-icon" aria-hidden="true">数</span>
+          <span>数据托底 15%</span>
+        </div>
+      </section>
+
+      <section class="hot-reference" data-motion-reveal aria-label="近期数据参考">
+        <div class="reference-rule" aria-hidden="true"></div>
+        <p>近期数据参考</p>
+        <div class="mini-number-row" id="hotNumbers">--</div>
+      </section>
+
+      <section class="basis-grid" data-motion-reveal aria-label="推荐依据">
+        <article class="basis-card">
+          <div class="basis-head">
+            <p>号码参考</p>
+            <span id="drawCount">近期走势</span>
+          </div>
+          <dl class="basis-list">
+            <div>
+              <dt>热号参考</dt>
+              <dd id="historyHotText">--</dd>
+            </div>
+            <div>
+              <dt>冷号避让</dt>
+              <dd id="coldNumbers">--</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="basis-card">
+          <div class="basis-head">
+            <p>玄学解读</p>
+            <span id="aiState">命盘合参</span>
+          </div>
+          <p class="basis-copy" id="personalBasis">本次暂无运势说明。</p>
+        </article>
+
+        <article class="basis-card recent">
+          <div class="basis-head">
+            <p>近期开奖</p>
+            <span>开奖记录</span>
+          </div>
+          <ol id="recentDraws"></ol>
+        </article>
+      </section>
+
+      <section class="reason-panel" data-motion-reveal aria-label="每个号码的含义">
+        <div class="basis-head">
+          <p>每个号码的含义</p>
+          <span>逐个说明</span>
+        </div>
+        <ul class="reason-list" id="numberReasons">
+          <li>本次暂无号码说明。</li>
+        </ul>
+      </section>
+
+      <section class="prediction-actions" id="predictionActions" aria-label="福彩3D方案动作" hidden>
+        <div class="prediction-actions-row">
+          <button class="primary-action small" id="savePlanButton" type="button">保存为本期方案</button>
+          <a class="text-action prediction-link" id="openWorkbenchLink" href="./analysis.html?game=3d">去3D工作台继续筛选</a>
+          <a class="text-action prediction-link" id="savedPlanLink" href="#" hidden>查看已保存方案</a>
+        </div>
+        <p class="plan-save-status" id="planSaveStatus" role="status">尚未保存</p>
+      </section>
+      </div>
+
+      <section class="profile-calendar-panel" data-motion-reveal aria-label="我的记录" hidden>
+        <article>
+          <div class="basis-head">
+            <p>我的记录</p>
+            <span>本机保存</span>
+          </div>
+          <div class="profile-book" id="profileBook">
+            <p class="empty-state">生成后自动沉淀个人财运档案。</p>
+          </div>
+        </article>
+        <article>
+          <div class="basis-head">
+            <p>近期开奖日</p>
+            <span>日期参考</span>
+          </div>
+          <div class="daily-fortune-calendar" id="dailyFortuneCalendar">
+            <p class="empty-state">生成后展示未来开奖日气口。</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="history-panel" data-motion-reveal aria-label="我的历史财运号" hidden>
+        <div class="basis-head">
+          <p>我的历史财运号</p>
+          <button class="text-action" id="clearHistoryButton" type="button">清空</button>
+        </div>
+        <div class="fortune-history-list" id="fortuneHistory">
+          <p class="empty-state">暂无生成记录。</p>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <span>仅供娱乐参考，请理性参与。</span>
+        <a href="./privacy.html">隐私说明</a>
+      </footer>
+
+    </main>
+
+    <script src="./motion.js?v=20260712-cinematic-v1" defer></script>
+    <script src="./product-client.js?v=20260713-product-client-v2" defer></script>
+    <script src="./app.js?v=20260808-home-cleanup-v1" defer></script>
+  </body>
+</html>

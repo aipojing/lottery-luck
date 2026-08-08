@@ -1,0 +1,11 @@
+.env
+.DS_Store
+.venv/
+.pytest_cache/
+__pycache__/
+.superpowers/
+.worktrees/
+.playwright-cli/
+output/playwright/
+frontend/.next/
+frontend/node_modules/

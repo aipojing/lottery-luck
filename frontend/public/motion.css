@@ -1,0 +1,406 @@
+:root {
+  --motion-fast: 180ms;
+  --motion-reveal: 550ms;
+  --motion-enter: 1100ms;
+  --motion-ease: cubic-bezier(0.16, 0.84, 0.18, 1);
+}
+
+.home-page .ritual-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--gold-pale);
+  background:
+    radial-gradient(circle at 50% 48%, rgba(198, 139, 40, 0.2), transparent 30%),
+    rgba(3, 3, 2, 0.96);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 420ms ease,
+    visibility 0s linear 760ms;
+  pointer-events: none;
+}
+
+.home-page .ritual-stage::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 48%, transparent 20%, rgba(0, 0, 0, 0.36) 66%, rgba(0, 0, 0, 0.9)),
+    repeating-linear-gradient(104deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 7px);
+}
+
+.home-page .ritual-stage[data-motion-state="running"],
+.home-page .ritual-stage[data-motion-state="waiting"],
+.home-page .ritual-stage[data-motion-state="complete"],
+.home-page .ritual-stage[data-motion-state="error"],
+.home-page .ritual-stage[data-motion-state="locked"] {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+  pointer-events: auto;
+}
+
+.home-page .ritual-stage.is-dismissed {
+  opacity: 0;
+  visibility: hidden;
+  transition-delay: 0s, 420ms;
+  pointer-events: none;
+}
+
+.home-page .ritual-stage-dial {
+  position: absolute;
+  width: min(620px, 72vw);
+  aspect-ratio: 1;
+  border: 1px solid rgba(222, 171, 80, 0.44);
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(225, 175, 85, 0.22) 0 0.6deg, transparent 0.7deg 8deg);
+  mask: radial-gradient(circle, transparent 0 66%, #000 67%);
+  animation: motion-dial-turn 12s linear infinite;
+  pointer-events: none;
+}
+
+.home-page .ritual-stage-dial.secondary {
+  width: min(470px, 58vw);
+  opacity: 0.5;
+  animation-direction: reverse;
+  animation-duration: 17s;
+}
+
+.home-page .ritual-stage-copy {
+  position: relative;
+  z-index: 2;
+  width: min(790px, calc(100% - 48px));
+  max-width: calc(100vw - 48px);
+  text-align: center;
+}
+
+.home-page .ritual-stage-status {
+  margin: 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.home-page .ritual-stage-copy h2 {
+  margin: 12px 0 0;
+  color: var(--gold-pale);
+  font-size: clamp(34px, 5vw, 62px);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.home-page .ritual-stage-progress {
+  height: 2px;
+  margin: 32px auto 25px;
+  overflow: hidden;
+  background: rgba(211, 158, 65, 0.18);
+}
+
+.home-page .ritual-stage-progress i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--gold-soft);
+  box-shadow: 0 0 18px rgba(232, 182, 91, 0.86);
+  transform: scaleX(calc(var(--motion-progress, 8) * 1%));
+  transform-origin: left;
+  transition: transform 700ms var(--motion-ease);
+}
+
+.home-page .ritual-stage-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-page .ritual-stage-steps li {
+  border-top: 1px solid rgba(218, 167, 77, 0.18);
+  color: var(--quiet);
+  padding-top: 11px;
+  transition:
+    color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+.home-page .ritual-stage-steps li.active,
+.home-page .ritual-stage-steps li.done {
+  border-color: var(--gold);
+  color: var(--gold-soft);
+}
+
+.home-page .ritual-stage-steps li.active {
+  transform: translateY(-3px);
+}
+
+.home-page .ritual-stage-steps span,
+.home-page .ritual-stage-steps strong {
+  display: block;
+}
+
+.home-page .ritual-stage-steps span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.home-page .ritual-stage-steps strong {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.home-page .ritual-stage-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.2vw, 16px);
+  row-gap: clamp(8px, 1vw, 12px);
+  max-width: min(100%, 760px);
+  min-height: 74px;
+  margin-top: 36px;
+}
+
+.home-page .motion-ball {
+  display: grid;
+  place-items: center;
+  width: clamp(48px, 5.2vw, 72px);
+  aspect-ratio: 1;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  color: var(--gold-pale);
+  background:
+    radial-gradient(circle at 36% 23%, rgba(255, 220, 170, 0.9), transparent 17%),
+    var(--cinnabar-2);
+  box-shadow:
+    inset 0 -13px 18px rgba(38, 0, 0, 0.62),
+    0 24px 30px rgba(85, 15, 6, 0.32);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(17px, 2vw, 27px);
+  font-style: normal;
+  opacity: 0;
+  animation: motion-ball-land 680ms var(--motion-ease) forwards;
+  animation-delay: calc(var(--motion-index) * 90ms);
+}
+
+.home-page .motion-ball.special {
+  background:
+    radial-gradient(circle at 36% 23%, rgba(218, 240, 255, 0.92), transparent 17%),
+    var(--blue);
+  box-shadow:
+    inset 0 -13px 18px rgba(0, 12, 38, 0.64),
+    0 24px 30px rgba(10, 65, 130, 0.3);
+}
+
+.home-page .ritual-stage[data-motion-state="waiting"] .ritual-stage-dial {
+  animation-duration: 22s;
+}
+
+.home-page .ritual-stage[data-motion-state="complete"] h2 {
+  text-shadow: 0 0 34px rgba(242, 190, 89, 0.62);
+}
+
+.home-page .ritual-stage[data-motion-state="error"] h2 {
+  color: #d98b78;
+}
+
+.home-page .ritual-stage[data-motion-state="locked"] h2 {
+  color: var(--gold-soft);
+}
+
+.home-page.is-page-entering .site-header,
+.home-page.is-page-entering .game-tabs,
+.home-page.is-page-entering .oracle-board,
+.home-page.is-page-entering .control-panel {
+  animation: motion-page-enter var(--motion-enter) var(--motion-ease) both;
+}
+
+.home-page.is-page-entering .game-tabs { animation-delay: 80ms; }
+.home-page.is-page-entering .oracle-board { animation-delay: 150ms; }
+.home-page.is-page-entering .control-panel { animation-delay: 220ms; }
+
+.home-page [data-motion-reveal] {
+  opacity: 1;
+  transform: none;
+}
+
+.home-page [data-motion-reveal].will-reveal {
+  transition:
+    opacity var(--motion-reveal) ease,
+    transform var(--motion-reveal) var(--motion-ease);
+}
+
+.home-page [data-motion-reveal].will-reveal:not(.is-revealed) {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.home-page [data-motion-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+.home-page .result-refreshed {
+  animation: motion-result-settle 700ms ease-out;
+}
+
+.home-page.motion-paused *,
+.home-page.motion-paused *::before,
+.home-page.motion-paused *::after {
+  animation-play-state: paused !important;
+}
+
+.home-page .prediction-actions {
+  width: min(920px, 100%);
+  margin: 18px auto 0;
+  padding: 0;
+}
+
+.home-page .prediction-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-page .prediction-actions .primary-action.small {
+  min-width: 168px;
+  min-height: 48px;
+  font-size: 15px;
+}
+
+.home-page .prediction-actions .prediction-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  border-radius: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-page .prediction-actions .prediction-link:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+.home-page .plan-save-status {
+  min-height: 22px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+@keyframes motion-dial-turn {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes motion-ball-land {
+  0% { opacity: 0; transform: translateY(-48px) scale(0.72); filter: blur(5px); }
+  72% { opacity: 1; transform: translateY(4px) scale(1.04); filter: none; }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes motion-page-enter {
+  from { opacity: 0; transform: translateY(16px); filter: blur(5px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes motion-result-settle {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.16); }
+  100% { filter: brightness(1); }
+}
+
+@media (max-width: 780px) {
+  .home-page .ritual-stage-copy {
+    width: min(620px, calc(100vw - 28px));
+    max-width: calc(100vw - 28px);
+  }
+
+  .home-page .ritual-stage-dial { width: min(560px, 112vw); }
+  .home-page .ritual-stage-dial.secondary { width: min(430px, 88vw); }
+  .home-page .ritual-stage-steps { gap: 4px; }
+  .home-page .ritual-stage-steps strong { font-size: 11px; }
+  .home-page .ritual-stage-numbers {
+    gap: 7px;
+    row-gap: 7px;
+    max-width: calc(100vw - 28px);
+    margin-top: 28px;
+  }
+
+  .home-page .prediction-actions-row {
+    align-items: stretch;
+  }
+
+  .home-page .prediction-actions .primary-action.small,
+  .home-page .prediction-actions .prediction-link {
+    flex: 1 1 100%;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .home-page .motion-ball {
+    width: clamp(34px, 9.4vw, 46px);
+    font-size: clamp(14px, 4.2vw, 18px);
+    box-shadow:
+      inset 0 -9px 13px rgba(38, 0, 0, 0.62),
+      0 14px 20px rgba(85, 15, 6, 0.28);
+  }
+}
+
+@media (max-width: 560px) {
+  .home-page .ritual-stage-copy {
+    width: calc(100% - 20px);
+  }
+
+  .home-page .ritual-stage-steps {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .home-page .ritual-stage-steps span {
+    font-size: 10px;
+  }
+
+  .home-page .ritual-stage-steps strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page .ritual-stage,
+  .home-page .ritual-stage *,
+  .home-page [data-motion-reveal],
+  .home-page .result-refreshed,
+  .home-page.is-page-entering .site-header,
+  .home-page.is-page-entering .game-tabs,
+  .home-page.is-page-entering .oracle-board,
+  .home-page.is-page-entering .control-panel {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+
+  .home-page [data-motion-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .home-page .motion-ball {
+    opacity: 1;
+    transform: none;
+  }
+}

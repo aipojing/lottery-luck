@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>数运合参 · 策略实验室</title>
+    <link rel="stylesheet" href="./styles.css?v=20260618-retention-v1-1" />
+  </head>
+  <body class="analysis-page strategy-page">
+    <main class="page-shell">
+      <header class="site-header" aria-label="页面信息">
+        <a class="brand" href="./" aria-label="返回数运合参首页">
+          <span class="brand-line">
+            <span class="brand-title">数运合参</span>
+            <span class="brand-seal" aria-hidden="true">策</span>
+          </span>
+          <span class="brand-subtitle">
+            <span aria-hidden="true"></span>
+            玄 金 策 略 盘
+            <span aria-hidden="true"></span>
+          </span>
+        </a>
+
+        <div class="header-tools">
+          <div class="top-meta" aria-label="数据状态">
+            <span id="latestDate">数据更新：--</span>
+            <span id="apiStatus" role="status">策略实验室</span>
+          </div>
+          <nav class="header-nav" aria-label="页面目录">
+            <a class="page-link" href="./">预测首页</a>
+            <a class="page-link" href="./analysis.html?game=ssq">数据分析</a>
+            <a class="page-link active" href="./strategy.html?game=ssq" aria-current="page">策略实验室</a>
+          </nav>
+        </div>
+      </header>
+
+      <nav class="game-tabs" id="gameTabs" aria-label="彩种切换"></nav>
+
+      <section class="analysis-workbench standalone" id="strategyLab" aria-label="策略实验室">
+        <div class="analysis-head">
+          <div>
+            <p class="section-kicker">策略研究</p>
+            <h1 class="analysis-title">策略实验室</h1>
+          </div>
+          <div class="strategy-actions">
+            <button class="analysis-window-button active" type="button" data-preset="balanced">均衡型</button>
+            <button class="analysis-window-button" type="button" data-preset="conservative">保守型</button>
+            <button class="analysis-window-button" type="button" data-preset="aggressive">激进型</button>
+          </div>
+        </div>
+        <div class="analysis-summary" id="strategySummary">策略数据加载中。</div>
+        <section
+          class="analysis-summary"
+          id="strategyCompat"
+          aria-labelledby="strategyCompatTitle"
+          hidden
+        >
+          <p class="section-kicker">福彩3D兼容入口</p>
+          <strong id="strategyCompatTitle">专业能力已合并到3D工作台</strong>
+          <p>旧入口保留兼容；本期助手与专业筛选已经统一在同一个3D工作台中。</p>
+          <div class="tool-button-row">
+            <a class="tool-action" id="strategyCompatPrimary" href="./analysis.html?game=3d&mode=pro&window=30">进入专业工作台</a>
+            <a class="tool-action secondary" id="strategyCompatSecondary" href="./analysis.html?game=3d&mode=simple&window=30">回本期助手</a>
+          </div>
+        </section>
+
+        <div class="strategy-layout" id="strategyLayout">
+          <article class="analysis-card strategy-config-panel">
+            <div class="analysis-card-head">
+              <h3>策略配置</h3>
+              <span id="presetDescription">选择预设或自定义条件</span>
+            </div>
+            <form class="tool-form strategy-form" id="strategyForm">
+              <label>
+                <span>候选组数</span>
+                <input name="candidate_count" type="number" min="1" max="30" value="8" />
+              </label>
+              <label>
+                <span>回测期数</span>
+                <input name="window" type="number" min="5" max="300" value="100" />
+              </label>
+              <label>
+                <span>排除近 N 期</span>
+                <input name="exclude_recent" type="number" min="0" max="30" />
+              </label>
+              <label>
+                <span>至少热号</span>
+                <input name="min_hot" type="number" min="0" max="20" />
+              </label>
+              <label>
+                <span>奇偶比</span>
+                <input name="odd_even" placeholder="3:3" />
+              </label>
+              <label>
+                <span>和值下限</span>
+                <input name="sum_min" type="number" />
+              </label>
+              <label>
+                <span>和值上限</span>
+                <input name="sum_max" type="number" />
+              </label>
+              <label>
+                <span>最大连号长度</span>
+                <input name="max_consecutive_run" type="number" min="1" max="20" />
+              </label>
+              <label>
+                <span>AC 值下限</span>
+                <input name="ac_min" type="number" min="0" />
+              </label>
+              <label>
+                <span>AC 值上限</span>
+                <input name="ac_max" type="number" min="0" />
+              </label>
+              <label>
+                <span>质合比</span>
+                <input name="prime_composite" placeholder="2:4" />
+              </label>
+              <label>
+                <span>012 路比</span>
+                <input name="mod3" placeholder="2:2:2" />
+              </label>
+              <label>
+                <span>区间比</span>
+                <input name="zone" placeholder="2:2:2" />
+              </label>
+              <label>
+                <span>排除尾数</span>
+                <input name="tail_exclude" placeholder="0 5" />
+              </label>
+              <label>
+                <span>包含尾数</span>
+                <input name="tail_include" placeholder="1 8" />
+              </label>
+              <label>
+                <span>最小遗漏</span>
+                <input name="min_omission" type="number" min="0" />
+              </label>
+            </form>
+            <div class="tool-button-row">
+              <button class="tool-action" type="button" id="generateButton">生成候选</button>
+              <button class="tool-action secondary" type="button" id="backtestButton">回测策略</button>
+              <button class="tool-action secondary" type="button" id="compareButton">预设对比</button>
+              <button class="mini-action subtle" type="button" id="saveStrategyButton">保存策略</button>
+            </div>
+          </article>
+
+          <article class="analysis-card strategy-result-panel">
+            <div class="analysis-card-head">
+              <h3>候选结果</h3>
+              <span>策略生成</span>
+            </div>
+            <div class="tool-result" id="candidateResult">等待生成。</div>
+          </article>
+
+          <article class="analysis-card strategy-backtest-panel">
+            <div class="analysis-card-head">
+              <h3>策略回测</h3>
+              <span>历史验证</span>
+            </div>
+            <div class="tool-result" id="backtestResult">等待回测。</div>
+          </article>
+
+          <article class="analysis-card saved-strategy-panel">
+            <div class="analysis-card-head">
+              <h3>我的策略</h3>
+              <span>本地保存</span>
+            </div>
+            <div class="tool-result" id="savedStrategies">暂无保存策略。</div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="./strategy.js?v=20260618-retention-v1-1" defer></script>
+  </body>
+</html>

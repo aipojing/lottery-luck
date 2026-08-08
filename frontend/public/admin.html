@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>数据后台 · 数运合参</title>
+    <link rel="stylesheet" href="./styles.css?v=20260618-retention-v1-1" />
+  </head>
+  <body class="analysis-page admin-page">
+    <main class="page-shell">
+      <header class="site-header compact">
+        <a class="brand-lockup" href="./">
+          <div>
+            <div class="brand-title">数运合参</div>
+            <div class="brand-subtitle"><span></span>数据后台<span></span></div>
+          </div>
+        </a>
+        <div class="header-tools">
+          <div class="top-meta" aria-label="数据状态">
+            <span id="apiStatus" role="status" aria-live="polite">数据后台加载中</span>
+          </div>
+          <nav class="header-nav" aria-label="页面目录">
+            <a class="page-link" href="./">预测首页</a>
+            <a class="page-link" href="./analysis.html?game=ssq">数据分析</a>
+            <a class="page-link" href="./strategy.html?game=ssq">策略实验室</a>
+            <a class="page-link active" href="./admin.html" aria-current="page">数据后台</a>
+          </nav>
+        </div>
+      </header>
+
+      <section
+        class="analysis-workbench standalone admin-workbench"
+        id="dataAdmin"
+        aria-label="数据后台"
+        data-locked="true"
+      >
+        <div class="analysis-head">
+          <div>
+            <p class="section-kicker">Data Ops</p>
+            <h1 class="analysis-title">数据健康与爬虫中台</h1>
+          </div>
+          <div class="analysis-window-tabs">
+            <button class="analysis-window-button active" id="refreshButton" type="button">刷新状态</button>
+            <button class="analysis-window-button" id="adminLockButton" type="button" hidden>
+              锁定后台
+            </button>
+          </div>
+        </div>
+        <section class="analysis-card admin-auth-card" id="adminAuthPanel" aria-label="后台授权">
+          <div class="analysis-card-head">
+            <h2>后台授权</h2>
+            <span>当前会话</span>
+          </div>
+          <form class="tool-form admin-auth-form" id="adminAuthForm">
+            <label for="adminTokenInput">后台口令</label>
+            <input
+              id="adminTokenInput"
+              name="admin_pass"
+              type="password"
+              autocomplete="current-password"
+            />
+            <button class="analysis-window-button active" id="adminUnlockButton" type="submit">
+              解锁后台
+            </button>
+          </form>
+          <div class="analysis-summary compact" id="adminAuthMessage" role="status" aria-live="polite">
+            需要授权后查看后台数据。
+          </div>
+        </section>
+        <div class="analysis-summary" id="adminSummary">请输入后台口令解锁。</div>
+        <div class="admin-kpis" id="adminKpis" hidden></div>
+        <section class="admin-action-plan" id="adminActionPlan" aria-label="下一步建议" hidden>
+          <div class="analysis-card-head">
+            <h2>下一步建议</h2>
+            <span>按缺口自动生成</span>
+          </div>
+          <div class="admin-action-list">等待数据健康报告。</div>
+        </section>
+        <section class="analysis-card admin-settings-card" id="adminSettings" aria-label="玄学算法配置" hidden>
+          <div class="analysis-card-head">
+            <h2>玄学算法配置</h2>
+            <span>权重 / AI 文案</span>
+          </div>
+          <div class="settings-grid">正在读取当前配置。</div>
+        </section>
+        <section class="analysis-card admin-tasks-card" id="adminTasks" aria-label="后台任务队列" hidden>
+          <div class="analysis-card-head">
+            <h2>后台任务队列</h2>
+            <span>定时补采 V1</span>
+          </div>
+          <form class="admin-task-form" id="adminTaskForm">
+            <label>
+              链路
+              <select name="provider">
+                <option value="cwl">福彩官方</option>
+                <option value="sports">体彩官方</option>
+              </select>
+            </label>
+            <label>
+              彩种
+              <input name="games" value="ssq,3d,kl8" />
+            </label>
+            <label>
+              每页
+              <input name="page_size" type="number" min="1" max="500" value="100" />
+            </label>
+            <label>
+              来源
+              <select name="source">
+                <option value="auto">auto</option>
+                <option value="browser">browser</option>
+                <option value="direct">direct</option>
+              </select>
+            </label>
+            <label>
+              页数
+              <input name="pages" type="number" min="1" max="20" value="1" />
+            </label>
+            <button class="analysis-window-button active" id="adminTaskRunButton" type="submit">
+              执行一次定时补采
+            </button>
+          </form>
+          <div class="analysis-summary compact" id="adminTaskResult">等待任务执行。</div>
+          <div class="admin-task-list" id="adminTaskList">正在读取任务队列。</div>
+        </section>
+        <div class="admin-layout" id="adminLayout" hidden>
+          <article class="analysis-card admin-health-card">
+            <div class="analysis-card-head">
+              <h2>彩种数据健康</h2>
+              <span>记录 / 最新 / 缺口</span>
+            </div>
+            <div id="healthTable"></div>
+          </article>
+          <article class="analysis-card admin-log-card">
+            <div class="analysis-card-head">
+              <h2>最近抓取日志</h2>
+              <span>最近20条</span>
+            </div>
+            <div id="crawlLogs"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script src="./admin.js?v=20260618-retention-v1-1"></script>
+  </body>
+</html>
