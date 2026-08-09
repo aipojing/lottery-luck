@@ -2020,17 +2020,19 @@ def test_predict_without_deepseek_key_explains_missing_configuration(monkeypatch
     )
 
     assert response.status_code == 200
-    assert "DeepSeek API Key 未配置" in response.json()["personal_basis"][
+    assert "请在 AI 设置中配置 DeepSeek API Key" in response.json()["personal_basis"][
         "ai_explanation"
     ]
 
 
 def test_predict_accepts_calendar_type_and_sends_minimized_features_to_ai_provider(monkeypatch):
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
     monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
     contexts = []
 
     class FakeDeepSeekProvider:
+        def __init__(self, *, api_key):
+            assert api_key == "user-secret"
+
         def extract(self, context):
             contexts.append(context)
             return {
@@ -2050,6 +2052,7 @@ def test_predict_accepts_calendar_type_and_sends_minimized_features_to_ai_provid
             "birth_date": "1990-05-17",
             "calendar_type": "lunar",
         },
+        headers={"X-DeepSeek-Api-Key": "user-secret"},
     )
 
     assert response.status_code == 200
@@ -2188,16 +2191,16 @@ def test_predict_blank_name_returns_422():
     assert response.status_code == 422
 
 
-def test_deepseek_key_without_explicit_ai_switch_constructs_provider(
+def test_user_deepseek_key_header_constructs_provider_and_closes_it(
     monkeypatch,
 ):
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "server-key-must-not-be-used")
     monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
     events = []
 
     class FakeDeepSeekProvider:
-        def __init__(self):
-            events.append("constructed")
+        def __init__(self, *, api_key):
+            events.append(("constructed", api_key))
 
         def extract(self, context):
             return {
@@ -2216,20 +2219,19 @@ def test_deepseek_key_without_explicit_ai_switch_constructs_provider(
             "name": "张三",
             "birth_date": "1990-05-17",
         },
+        headers={"X-DeepSeek-Api-Key": "  user-secret  "},
     )
 
     assert response.status_code == 200
-    assert events == ["constructed", "closed"]
+    assert events == [("constructed", "user-secret"), "closed"]
 
 
-def test_explicit_ai_switch_false_disables_deepseek_provider(
-    monkeypatch,
-):
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
-    monkeypatch.setenv("LOTTERY_LUCK_AI_ENABLED", "false")
+def test_server_deepseek_key_is_not_used_without_user_header(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "server-key-must-not-be-used")
+    monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
 
     def fail_if_constructed(*args, **kwargs):
-        raise AssertionError("DeepSeek provider should not be constructed")
+        raise AssertionError("DeepSeek provider should require a user key header")
 
     monkeypatch.setattr("lottery_luck.api.DeepSeekFlashProvider", fail_if_constructed)
 
@@ -2246,14 +2248,37 @@ def test_explicit_ai_switch_false_disables_deepseek_provider(
     assert response.json()["personal_basis"]["ai_enabled"] is False
 
 
+def test_explicit_ai_switch_false_disables_deepseek_provider(
+    monkeypatch,
+):
+    monkeypatch.setenv("LOTTERY_LUCK_AI_ENABLED", "false")
+
+    def fail_if_constructed(*args, **kwargs):
+        raise AssertionError("DeepSeek provider should not be constructed")
+
+    monkeypatch.setattr("lottery_luck.api.DeepSeekFlashProvider", fail_if_constructed)
+
+    response = client.post(
+        "/api/predict",
+        json={
+            "game_key": "ssq",
+            "name": "张三",
+            "birth_date": "1990-05-17",
+        },
+        headers={"X-DeepSeek-Api-Key": "user-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["personal_basis"]["ai_enabled"] is False
+
+
 def test_explicit_ai_switch_constructs_provider_and_closes_it(monkeypatch):
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
     monkeypatch.setenv("LOTTERY_LUCK_AI_ENABLED", "true")
     events = []
 
     class FakeDeepSeekProvider:
-        def __init__(self):
-            events.append("constructed")
+        def __init__(self, *, api_key):
+            events.append(("constructed", api_key))
 
         def extract(self, context):
             return {
@@ -2272,10 +2297,29 @@ def test_explicit_ai_switch_constructs_provider_and_closes_it(monkeypatch):
             "name": "张三",
             "birth_date": "1990-05-17",
         },
+        headers={"X-DeepSeek-Api-Key": "user-secret"},
     )
 
     assert response.status_code == 200
-    assert events == ["constructed", "closed"]
+    assert events == [("constructed", "user-secret"), "closed"]
+
+
+def test_oversized_user_deepseek_key_is_rejected_without_echoing_value(monkeypatch):
+    monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
+    secret = "s" * 513
+
+    response = client.post(
+        "/api/predict",
+        json={
+            "game_key": "ssq",
+            "name": "张三",
+            "birth_date": "1990-05-17",
+        },
+        headers={"X-DeepSeek-Api-Key": secret},
+    )
+
+    assert response.status_code == 400
+    assert secret not in response.text
 
 
 def test_dependency_override_can_supply_repository():

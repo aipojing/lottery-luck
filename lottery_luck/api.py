@@ -57,6 +57,8 @@ from .workbench_routes import router as workbench_router
 AUTO_UPDATE_SHUTDOWN_TIMEOUT_SECONDS = 2.0
 PRODUCT_EVENT_MAX_CONTENT_LENGTH = 8192
 PREDICTION_DATA_UNAVAILABLE = "prediction data unavailable"
+USER_DEEPSEEK_API_KEY_HEADER = "X-DeepSeek-Api-Key"
+USER_DEEPSEEK_API_KEY_MAX_LENGTH = 512
 PRODUCTION_CRON_CWL_GAMES = ["ssq", "3d", "kl8"]
 PRODUCTION_CRON_SPORTS_GAMES = ["dlt", "pl3"]
 LOGGER = logging.getLogger(__name__)
@@ -333,12 +335,20 @@ def health(
     }
 
 
-def get_ai_provider() -> NullAiProvider | DeepSeekFlashProvider:
+def get_ai_provider(
+    x_deepseek_api_key: Annotated[
+        str | None,
+        Header(alias=USER_DEEPSEEK_API_KEY_HEADER),
+    ] = None,
+) -> NullAiProvider | DeepSeekFlashProvider:
     if not env_flag("LOTTERY_LUCK_AI_ENABLED", True):
         return NullAiProvider("DeepSeek 已被配置开关关闭，使用中性特征。")
-    if os.getenv("DEEPSEEK_API_KEY"):
-        return DeepSeekFlashProvider()
-    return NullAiProvider("DeepSeek API Key 未配置，使用中性特征。")
+    api_key = (x_deepseek_api_key or "").strip()
+    if len(api_key) > USER_DEEPSEEK_API_KEY_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail="invalid DeepSeek API key")
+    if api_key:
+        return DeepSeekFlashProvider(api_key=api_key)
+    return NullAiProvider("请在 AI 设置中配置 DeepSeek API Key，当前使用中性特征。")
 
 
 def _frontend_number_rule(game_key: str) -> dict[str, Any]:

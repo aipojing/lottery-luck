@@ -367,6 +367,15 @@ const els = {
   analysisTrend: document.querySelector("#analysisTrend"),
   analysisShape: document.querySelector("#analysisShape"),
   analysisRecentDraws: document.querySelector("#analysisRecentDraws"),
+  aiSettingsButton: document.querySelector("#aiSettingsButton"),
+  aiSettingsLabel: document.querySelector("#aiSettingsLabel"),
+  aiSettingsDialog: document.querySelector("#aiSettingsDialog"),
+  aiSettingsForm: document.querySelector("#aiSettingsForm"),
+  deepseekApiKey: document.querySelector("#deepseekApiKey"),
+  showDeepseekApiKey: document.querySelector("#showDeepseekApiKey"),
+  aiSettingsHint: document.querySelector("#aiSettingsHint"),
+  closeAiSettingsButton: document.querySelector("#closeAiSettingsButton"),
+  clearAiSettingsButton: document.querySelector("#clearAiSettingsButton"),
 };
 
 function padNumber(value) {
@@ -412,6 +421,83 @@ function clientId() {
   } catch (error) {
     return "client-session";
   }
+}
+
+function updateAiSettingsState() {
+  const configured = Boolean(window.LotteryAiKey?.read());
+  if (els.aiSettingsButton) {
+    els.aiSettingsButton.classList.toggle("is-configured", configured);
+    els.aiSettingsButton.setAttribute(
+      "aria-label",
+      configured ? "DeepSeek Key 已配置，打开设置" : "打开 DeepSeek AI 设置",
+    );
+  }
+  if (els.aiSettingsLabel) {
+    els.aiSettingsLabel.textContent = configured ? "AI 已配置" : "AI 设置";
+  }
+}
+
+function setAiSettingsHint(message, isError = false) {
+  if (!els.aiSettingsHint) return;
+  els.aiSettingsHint.textContent = message;
+  els.aiSettingsHint.classList.toggle("error", isError);
+}
+
+function closeAiSettings() {
+  if (!els.aiSettingsDialog) return;
+  if (typeof els.aiSettingsDialog.close === "function") {
+    els.aiSettingsDialog.close();
+  } else {
+    els.aiSettingsDialog.removeAttribute("open");
+  }
+}
+
+function openAiSettings() {
+  if (!els.aiSettingsDialog || !els.deepseekApiKey) return;
+  els.deepseekApiKey.value = window.LotteryAiKey?.read() || "";
+  els.deepseekApiKey.type = "password";
+  if (els.showDeepseekApiKey) els.showDeepseekApiKey.checked = false;
+  setAiSettingsHint("密钥仅保存在当前浏览器，起盘时使用。");
+  if (typeof els.aiSettingsDialog.showModal === "function") {
+    els.aiSettingsDialog.showModal();
+  } else {
+    els.aiSettingsDialog.setAttribute("open", "");
+  }
+  els.deepseekApiKey.focus();
+}
+
+function setupAiSettings() {
+  updateAiSettingsState();
+  els.aiSettingsButton?.addEventListener("click", openAiSettings);
+  els.closeAiSettingsButton?.addEventListener("click", closeAiSettings);
+  els.showDeepseekApiKey?.addEventListener("change", () => {
+    if (!els.deepseekApiKey) return;
+    els.deepseekApiKey.type = els.showDeepseekApiKey.checked ? "text" : "password";
+  });
+  els.aiSettingsDialog?.addEventListener("click", (event) => {
+    if (event.target === els.aiSettingsDialog) closeAiSettings();
+  });
+  els.aiSettingsForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    try {
+      window.LotteryAiKey.save(els.deepseekApiKey?.value || "");
+      updateAiSettingsState();
+      setAiSettingsHint("已保存到当前浏览器。");
+      window.setTimeout(closeAiSettings, 320);
+    } catch (error) {
+      setAiSettingsHint(error?.message || "保存失败，请重试。", true);
+    }
+  });
+  els.clearAiSettingsButton?.addEventListener("click", () => {
+    try {
+      window.LotteryAiKey?.clear();
+      if (els.deepseekApiKey) els.deepseekApiKey.value = "";
+      updateAiSettingsState();
+      setAiSettingsHint("密钥已从当前浏览器清除。");
+    } catch (error) {
+      setAiSettingsHint("清除失败，请检查浏览器存储权限。", true);
+    }
+  });
 }
 
 function resetSubmitButtonLabel() {
@@ -2249,7 +2335,9 @@ async function predict({ userInitiated = false } = {}) {
   try {
     const payload = normalizePredictionPayload(await fetchJson("/api/predict", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: window.LotteryAiKey?.withPredictionHeader({
+        "Content-Type": "application/json",
+      }) || { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),
       signal: abortController.signal,
     }));
@@ -2336,6 +2424,7 @@ els.predictForm.addEventListener("submit", (event) => {
 
 setupCustomSelects();
 setupFortuneModes();
+setupAiSettings();
 setupPlanSyncListener();
 renderFortuneHistory();
 els.clearHistoryButton?.addEventListener("click", () => {

@@ -58,6 +58,10 @@
               birth_vector 是由出生日期和已知出生时辰粗略派生的五行分布，不是原始出生日期或原始出生时辰。
             </p>
             <p>
+              用户填写的 DeepSeek API Key 只保存在当前浏览器的 Local Storage，起盘时随该次请求转发给 DeepSeek；服务端不保存该密钥。
+              清除 AI 设置或浏览器站点数据即可移除本机密钥。
+            </p>
+            <p>
               位置关系只会是 same / different / incomplete：两地都非空且归一后相同为 same，都非空但不同为 different，其余为 incomplete。
               location_relation 只按去除首尾空白、压缩空白和大小写归一后的文本精确相等判断，不会做行政区划后缀等价。
             </p>

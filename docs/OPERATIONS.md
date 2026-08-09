@@ -74,18 +74,18 @@ unset ADMIN_TOKEN
 ### DeepSeek
 
 ```bash
-DEEPSEEK_API_KEY=sk-your-deepseek-api-key
 DEEPSEEK_MODEL=deepseek-v4-flash
-LOTTERY_LUCK_AI_ENABLED=false
+LOTTERY_LUCK_AI_ENABLED=true
 ```
 
 说明：
 
-- `LOTTERY_LUCK_AI_ENABLED=false` 会强制使用 `NullAiProvider`，即使存在 `DEEPSEEK_API_KEY`。
-- `DEEPSEEK_API_KEY` 缺失时也会使用 `NullAiProvider`。
+- `LOTTERY_LUCK_AI_ENABLED=false` 会强制使用 `NullAiProvider`，用于紧急关闭第三方 AI。
+- DeepSeek API Key 由用户在首页自行配置，保存在浏览器 Local Storage，并仅随 `/api/predict` 请求发送；API 不落库、不记录该密钥。
+- 用户没有配置 API Key 时使用 `NullAiProvider`。
 - 启用 AI 时，第三方只接收 `game_key`、`fortune_mode`、`best_draw_date` 和 `personal_features` 派生特征。不会发送原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。
 - AI 返回 payload 只允许 `element_bias`、`digit_bias`、`lucky_themes`、`explanation`、`confidence`，包含具体号码、承诺词或未知字段时降级为中性特征。
-- Vercel 部署时，`DEEPSEEK_API_KEY` 和 `DEEPSEEK_MODEL` 只允许配置在 API 项目；Web 项目不能持有或转发 DeepSeek 凭证。
+- Vercel API 项目只配置 `DEEPSEEK_MODEL` 和 `LOTTERY_LUCK_AI_ENABLED=true`；不再配置共享的 `DEEPSEEK_API_KEY`。
 
 ### Turso
 
@@ -129,7 +129,7 @@ TURSO_DATABASE_URL='libsql://...' TURSO_AUTH_TOKEN='...' \
 
 | 项目 | Root Directory | 环境变量 |
 | --- | --- | --- |
-| API | 仓库根目录 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `LOTTERY_LUCK_ADMIN_TOKEN`, `CRON_SECRET`, `ALLOWED_ORIGINS`, `LOTTERY_LUCK_QUOTA_ENABLED=false` |
+| API | 仓库根目录 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `DEEPSEEK_MODEL`, `LOTTERY_LUCK_AI_ENABLED=true`, `LOTTERY_LUCK_ADMIN_TOKEN`, `CRON_SECRET`, `ALLOWED_ORIGINS`, `LOTTERY_LUCK_QUOTA_ENABLED=false` |
 | Web | `frontend` | `API_BASE_URL=https://<api-project>.vercel.app` |
 
 边界：
@@ -483,7 +483,7 @@ Local Storage 历史记录、无 DeepSeek key 降级和前端敏感信息边界�
 - Next 单测：`2 files passed / 4 tests passed`。
 - Next 生产构建：Next.js `16.3.0` 编译、类型检查和静态页面生成成功。
 - 浏览器验收：桌面 `1440x1000`、移动 `390x844` 均打开预测首页和福彩3D工具箱；预测表单提交后成功落盘，并在本机历史中出现；`mode=pro` 旧深链接迁移到工具路由；走势图、出次统计、策略兼容页、历史详情页和锁定态后台均可访问。
-- 无 AI key 验收：未配置 `DEEPSEEK_API_KEY` 时预测仍成功，并使用服务端本地解释兜底。
+- 无 AI key 验收：浏览器未配置用户 DeepSeek Key 时预测仍成功，并使用服务端本地解释兜底。
 - 浏览器产物扫描：`frontend/.next/static`、`frontend/public`、`web` 中未发现 `DEEPSEEK_API_KEY`、`TURSO_AUTH_TOKEN`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`，也未发现会员、次数包、模拟购买或解锁文案。
 - 商业代码休眠：额度和云端财运记录接口在 `LOTTERY_LUCK_QUOTA_ENABLED=false` 时统一返回 404；Turso 远端核验缺少 URL 或 token 时拒绝回退到本地库。
 - 已知非阻断项：浏览器仅报告缺少 `/favicon.ico`；本地种子数据停留在 2026-06-14，因此福彩3D本期保存保持只读降级，这不代表生产数据状态。
@@ -550,7 +550,7 @@ rg -n 'TODO|TBD|FIXME|placeholder|coming soon' lottery_luck web tests README.md 
 
 - API 未启动。
 - `LOTTERY_LUCK_AI_ENABLED=false`。
-- `DEEPSEEK_API_KEY` 未配置。
+- 当前浏览器未在首页“AI 设置”中保存 DeepSeek API Key。
 - 本地数据库缺失或路径不正确。
 
 处理：

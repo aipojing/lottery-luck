@@ -75,9 +75,8 @@ python -m uvicorn lottery_luck.api:app --host 127.0.0.1 --port 8017
 复制 `.env.example` 后按需设置：
 
 ```bash
-DEEPSEEK_API_KEY=sk-your-deepseek-api-key
 DEEPSEEK_MODEL=deepseek-v4-flash
-LOTTERY_LUCK_AI_ENABLED=false
+LOTTERY_LUCK_AI_ENABLED=true
 LOTTERY_LUCK_ADMIN_TOKEN=
 LOTTERY_LUCK_AUTO_UPDATE_ENABLED=false
 LOTTERY_LUCK_AUTO_UPDATE_INTERVAL_SECONDS=21600
@@ -92,7 +91,7 @@ LOTTERY_LUCK_SETTINGS_PATH=/absolute/path/settings.json
 SPORTS_LOTTERY_API_BASE_URL=https://webapi.sporttery.cn
 ```
 
-`LOTTERY_LUCK_AI_ENABLED=false` 会强制关闭 DeepSeek 等第三方 AI provider，即使配置了 `DEEPSEEK_API_KEY` 也会使用中性特征。未设置 `DEEPSEEK_API_KEY` 时也会自动降级为中性特征。
+DeepSeek API Key 由用户在首页“AI 设置”中填写，只保存在当前浏览器的 Local Storage，并在预测请求中临时发送给 API。API 不保存用户密钥。`LOTTERY_LUCK_AI_ENABLED=false` 可作为服务端总开关强制关闭第三方 AI；用户未配置密钥时自动降级为中性特征。
 
 `LOTTERY_LUCK_ADMIN_TOKEN` 是生产必填项，用于 `X-Lottery-Admin-Token` 后台鉴权。未配置或请求未带匹配 token 时，`/api/admin/*` 全部返回 401，后台页面只保留锁定壳，不会预填 token。生产 token 请用密码管理器或部署平台 secret 配置，不要写进 shell history、URL、日志或仓库文件。生成、验证和轮换步骤见 [docs/OPERATIONS.md](docs/OPERATIONS.md)。
 
@@ -104,7 +103,7 @@ SPORTS_LOTTERY_API_BASE_URL=https://webapi.sporttery.cn
 
 生产部署使用两个 Vercel 项目：
 
-- API 项目：Root Directory 设为仓库根目录。只在该项目配置 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS`、`LOTTERY_LUCK_QUOTA_ENABLED=false`。
+- API 项目：Root Directory 设为仓库根目录。只在该项目配置 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS`、`LOTTERY_LUCK_QUOTA_ENABLED=false`。
 - Web 项目：Root Directory 设为 `frontend`。只配置 `API_BASE_URL=https://<api-project>.vercel.app`，不要配置 DeepSeek、Turso 或管理口令。
 
 Turso 导入和核对顺序：

@@ -133,16 +133,17 @@ cwl_history/cwl_history.sqlite
 
 Vercel 使用两个项目：
 
-- API 项目：Root Directory 为仓库根目录，运行 FastAPI/Python Functions，持有 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS` 和 `LOTTERY_LUCK_QUOTA_ENABLED=false`。
+- API 项目：Root Directory 为仓库根目录，运行 FastAPI/Python Functions，持有 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS` 和 `LOTTERY_LUCK_QUOTA_ENABLED=false`。
 - Web 项目：Root Directory 为 `frontend`，只持有 `API_BASE_URL=https://<api-project>.vercel.app`，通过 API 项目读取预测、分析、抓取和后台数据。
 
-DeepSeek 调用只发生在 API 项目。Web 构建产物、Local Storage 和网络请求中都不应出现 DeepSeek key、Turso token、管理员 token 或 cron secret。
+DeepSeek 调用只发生在 API 项目。用户 Key 由首页写入当前浏览器的 Local Storage，并仅在 `/api/predict` 请求头中传给 API；API 不持久化或记录该值。Turso token、管理员 token 和 cron secret 仍只能存在于 API 项目。
 
 ## 前端状态
 
 首页使用 `localStorage` 保存：
 
 - `lotteryLuck.clientId.v1`：本地 client id，用于 V1 额度和云端记录。
+- `lotteryLuck.deepseekApiKey.v1`：用户自行配置的 DeepSeek API Key，仅用于预测请求。
 - `lotteryLuck.fortuneHistory.v1`：本机历史财运号。
 
 免费用户只依赖本地记录；付费态会调用云端记录 API。
