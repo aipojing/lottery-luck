@@ -1126,3 +1126,28 @@ def _result_payload(
         "truncated": False,
         "warnings": [],
     }
+
+
+def result_from_candidates(
+    game_key: str,
+    tool: str,
+    candidates: list[dict[str, Any]],
+    options: dict[str, Any] | None,
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    normalized_options = normalize_options(game_key, options)
+    entries = [
+        _normalize_entry(
+            game_key,
+            list(candidate.get("main") or candidate.get("numbers") or []),
+            list(candidate.get("special") or []),
+            play_type=str(candidate.get("play_type") or "straight"),
+        )
+        for candidate in candidates
+    ]
+    payload = _result_payload(game_key, tool, entries, normalized_options)
+    if payload["total_cost"] > MAX_TOTAL_COST:
+        payload["warnings"].append("spend_limit")
+    payload["source_meta"] = deepcopy(metadata or {})
+    return payload

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from lottery_luck.api import app
+from lottery_luck.api import app, get_repository
 
 
 client = TestClient(app)
@@ -240,3 +240,50 @@ def test_dlt_dantuo_route_requires_a_dan_in_at_least_one_zone():
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "selection_too_small"
+
+
+TOOL_ROUTE_SSQ_DRAWS = [
+    {
+        "issue": f"{index:03d}",
+        "draw_date": f"2026-07-{index:02d}",
+        "red_numbers": "01,04,07,12,22,33",
+        "blue_number": "07",
+    }
+    for index in range(12, 0, -1)
+]
+
+
+def test_conditional_route_uses_repository_history(monkeypatch):
+    class Repo:
+        def recent_draws(self, game_key, limit):
+            assert game_key == "ssq"
+            assert limit == 120
+            return TOOL_ROUTE_SSQ_DRAWS
+
+    app.dependency_overrides[get_repository] = lambda: Repo()
+    try:
+        response = client.post("/api/tools/ssq/conditional", json={
+            "source": "strategy", "preset": "balanced", "count": 3,
+            "conditions": {}, "options": {},
+        })
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.json()["ticket_count"] == 3
+
+
+def test_conditional_route_rejects_unknown_source_with_stable_422():
+    response = client.post("/api/tools/3d/conditional", json={"source": "unknown"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == {"code": "invalid_request", "message": "工具请求参数无效。"}
+
+
+def test_conditional_route_rejects_spend_over_limit():
+    response = client.post("/api/tools/3d/conditional", json={
+        "source": "digit_filter",
+        "count": 200,
+        "conditions": {"max_results": 200},
+        "options": {"multiplier": 99},
+    })
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "spend_limit"

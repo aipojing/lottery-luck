@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Literal
+from typing import Annotated, Any, Callable, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
+from .conditional_tools import conditional_pick
 from .number_tools import (
     PUBLIC_TOOL_GAMES,
     ToolError,
@@ -16,6 +17,8 @@ from .number_tools import (
     reduce_by_budget,
     tool_config_payload,
 )
+from .plan_routes import get_repository
+from .repository import LotteryRepository
 
 
 router = APIRouter(prefix="/api/tools")
@@ -67,6 +70,17 @@ class OrganizeRequest(BaseModel):
     batch_a: str = Field(default="", max_length=100_000)
     batch_b: str = Field(default="", max_length=100_000)
     operation: Literal["dedupe", "union", "intersection", "difference"] = "dedupe"
+    options: ToolOptions = Field(default_factory=ToolOptions)
+
+
+class ConditionalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    source: Literal["strategy", "digit_filter"] = "strategy"
+    preset: Literal["balanced", "conservative", "aggressive"] = "balanced"
+    count: StrictInt = Field(default=8, ge=1, le=200)
+    window: StrictInt = Field(default=120, ge=1, le=300)
+    conditions: dict[str, Any] = Field(default_factory=dict)
     options: ToolOptions = Field(default_factory=ToolOptions)
 
 
@@ -155,3 +169,17 @@ def tool_organize(game_key: str, request: OrganizeRequest) -> dict[str, Any]:
             request.options.to_domain_payload(),
         )
     )
+
+
+@router.post("/{game_key}/conditional")
+def tool_conditional(
+    game_key: str,
+    request: ConditionalRequest,
+    repo: Annotated[LotteryRepository, Depends(get_repository)],
+) -> dict[str, Any]:
+    _ensure_game(game_key)
+    draws = [] if request.source == "digit_filter" else repo.recent_draws(game_key, limit=request.window)
+    return _run_tool(lambda: conditional_pick(
+        game_key, draws, request.source, request.preset,
+        request.conditions, request.count, request.options.to_domain_payload(),
+    ))
