@@ -6,8 +6,8 @@
 
 ## 在线体验
 
-- Web 前端：[https://lottery-luck-web.vercel.app/](https://lottery-luck-web.vercel.app/)
-- API 健康检查：[https://lottery-luck-api.vercel.app/api/health](https://lottery-luck-api.vercel.app/api/health)
+- Web 前端：[https://cp.aipojing.cn/](https://cp.aipojing.cn/)
+- API 健康检查：[https://api.aipojing.cn/api/health](https://api.aipojing.cn/api/health)
 
 ## 当前能力
 
@@ -110,8 +110,8 @@ DeepSeek API Key 由用户在首页“AI 设置”中填写，连接验证通过
 
 生产部署使用两个 Vercel 项目：
 
-- API 项目：[https://lottery-luck-api.vercel.app/](https://lottery-luck-api.vercel.app/)。Root Directory 设为仓库根目录，只在该项目配置 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS`、`LOTTERY_LUCK_QUOTA_ENABLED=false`。
-- Web 项目：[https://lottery-luck-web.vercel.app/](https://lottery-luck-web.vercel.app/)。Root Directory 设为 `frontend`，只配置 `API_BASE_URL=https://lottery-luck-api.vercel.app`，不要配置 DeepSeek、Turso 或管理口令。
+- API 项目：[https://api.aipojing.cn/](https://api.aipojing.cn/)。Root Directory 设为仓库根目录，只在该项目配置 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS`、`LOTTERY_LUCK_QUOTA_ENABLED=false`。
+- Web 项目：[https://cp.aipojing.cn/](https://cp.aipojing.cn/)。Root Directory 设为 `frontend`，只配置 `API_BASE_URL=https://api.aipojing.cn`，不要配置 DeepSeek、Turso 或管理口令。
 
 Turso 导入和核对顺序：
 
