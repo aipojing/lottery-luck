@@ -63,4 +63,23 @@ describe("user DeepSeek API key", () => {
       appSource.indexOf("withPredictionHeader"),
     );
   });
+
+  it("opens AI settings before validating or starting a prediction when no key exists", async () => {
+    const appSource = await readFile(path.join(process.cwd(), "..", "web", "app.js"), "utf8");
+    const submitHandler = appSource.slice(
+      appSource.indexOf('els.predictForm.addEventListener("submit"'),
+      appSource.indexOf("setupCustomSelects();"),
+    );
+
+    expect(submitHandler).toContain("if (!requireAiConfiguration()) return;");
+    expect(submitHandler.indexOf("requireAiConfiguration")).toBeLessThan(
+      submitHandler.indexOf("validatePredictForm"),
+    );
+    expect(appSource).toMatch(
+      /els\.submitButton\?\.addEventListener\("click",[\s\S]*?requireAiConfiguration\(\)[\s\S]*?event\.preventDefault\(\)/,
+    );
+    expect(appSource).toMatch(
+      /function requireAiConfiguration\(\)[\s\S]*?LotteryAiKey\?\.read\(\)[\s\S]*?openAiSettings\(/,
+    );
+  });
 });

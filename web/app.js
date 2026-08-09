@@ -452,18 +452,29 @@ function closeAiSettings() {
   }
 }
 
-function openAiSettings() {
+function openAiSettings({ required = false } = {}) {
   if (!els.aiSettingsDialog || !els.deepseekApiKey) return;
   els.deepseekApiKey.value = window.LotteryAiKey?.read() || "";
   els.deepseekApiKey.type = "password";
   if (els.showDeepseekApiKey) els.showDeepseekApiKey.checked = false;
-  setAiSettingsHint("密钥仅保存在当前浏览器，起盘时使用。");
+  setAiSettingsHint(
+    required
+      ? "请先配置 DeepSeek API Key，再开始起盘。密钥只保存在当前浏览器。"
+      : "密钥仅保存在当前浏览器，起盘时使用。",
+  );
   if (typeof els.aiSettingsDialog.showModal === "function") {
     els.aiSettingsDialog.showModal();
   } else {
     els.aiSettingsDialog.setAttribute("open", "");
   }
   els.deepseekApiKey.focus();
+}
+
+function requireAiConfiguration() {
+  if (window.LotteryAiKey?.read()) return true;
+  setGenerateFeedback("请先配置 DeepSeek API Key，再开始起盘。", true);
+  openAiSettings({ required: true });
+  return false;
 }
 
 function setupAiSettings() {
@@ -483,6 +494,7 @@ function setupAiSettings() {
       window.LotteryAiKey.save(els.deepseekApiKey?.value || "");
       updateAiSettingsState();
       setAiSettingsHint("已保存到当前浏览器。");
+      setGenerateFeedback("DeepSeek API Key 已配置，可以开始起盘。");
       window.setTimeout(closeAiSettings, 320);
     } catch (error) {
       setAiSettingsHint(error?.message || "保存失败，请重试。", true);
@@ -2416,8 +2428,14 @@ if (els.analysisWindowTabs) {
   });
 }
 
+els.submitButton?.addEventListener("click", (event) => {
+  if (requireAiConfiguration()) return;
+  event.preventDefault();
+});
+
 els.predictForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!requireAiConfiguration()) return;
   if (!validatePredictForm()) return;
   predict({ userInitiated: true });
 });
