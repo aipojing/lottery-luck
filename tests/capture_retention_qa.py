@@ -53,7 +53,6 @@ SCREENSHOTS = {
     # release bar below can be read straight off the image.
     "toolbox_home_mobile": ARTIFACTS / "fc3d-toolbox-home-mobile.png",
     "toolbox_trend_desktop": ARTIFACTS / "fc3d-toolbox-trend-desktop.png",
-    "toolbox_reduction_mobile": ARTIFACTS / "fc3d-toolbox-reduction-mobile.png",
     "toolbox_stale_mobile": ARTIFACTS / "fc3d-toolbox-stale-mobile.png",
 }
 
@@ -68,7 +67,6 @@ TOOL_KEYS = (
     "heat",
     "number",
     "attributes",
-    "reduction",
     "recent",
 )
 
@@ -311,22 +309,6 @@ def capture_fresh_toolbox(
             MOBILE,
             full_page=False,
         )
-
-        mobile.goto(f"{base_url}/analysis.html?game=3d&tool=reduction")
-        wait_for_reduction_tool(mobile)
-        fill_reduction_conditions(mobile)
-        with mobile.expect_response("**/api/3d/filter"):
-            mobile.locator("#threeDFilterForm button[type='submit']").click()
-        mobile.wait_for_function(
-            "() => document.querySelectorAll('[data-candidate-number]').length > 0",
-            timeout=8000,
-        )
-        assert_reduction_results(mobile)
-        results["toolbox_reduction_mobile"] = screenshot_and_assert(
-            mobile,
-            outputs["toolbox_reduction_mobile"],
-            MOBILE,
-        )
     finally:
         mobile.close()
 
@@ -342,19 +324,10 @@ def capture_stale_mobile(browser: Browser, base_url: str, output: Path) -> dict[
         # a real result before the disabled current-issue state is captured.
         assert_history_tools_readable_when_stale(page, base_url)
 
-        page.goto(f"{base_url}/analysis.html?game=3d&tool=reduction")
-        wait_for_reduction_tool(page)
+        page.goto(f"{base_url}/analysis.html?game=3d")
+        wait_for_toolbox_home(page)
         assert_text_visible(page, "#threeDFreshness", "数据待更新")
         assert_text_visible(page, "#threeDFreshness", STALE_LATEST_DATE.isoformat())
-        # Conditions stay editable; only claiming the current issue is gated.
-        fill_reduction_conditions(page)
-        assert page.locator("#threeDSumMin").is_editable()
-        assert page.locator("#threeDFilterForm button[type='submit']").is_disabled()
-        assert page.locator("#threeDFilterSave").is_disabled()
-        assert page.locator("#threeDManualSave").is_disabled()
-        # The reason sits with the action it blocks, and it names the data it waits for.
-        assert_text_visible(page, "#threeDFilterResult", "数据待更新")
-        assert_text_visible(page, "#threeDFilterResult", STALE_LATEST_DATE.isoformat())
         assert_no_page_horizontal_overflow(page)
         assert_not_loading_or_error(page)
         return screenshot_and_assert(page, output, MOBILE)
@@ -421,25 +394,6 @@ def wait_for_trend_tool(page: Page) -> None:
     )
 
 
-def wait_for_reduction_tool(page: Page) -> None:
-    page.wait_for_selector('[data-three-d-tool-panel="reduction"]:not([hidden])')
-    page.wait_for_function(
-        "() => document.querySelector('#threeDFreshness')?.textContent.includes('2026')",
-        timeout=8000,
-    )
-
-
-def fill_reduction_conditions(page: Page) -> None:
-    page.locator("#threeDSumMin").fill("6")
-    page.locator("#threeDSumMax").fill("18")
-    page.locator("#threeDSpanMin").fill("1")
-    page.locator("#threeDSpanMax").fill("8")
-    page.locator('#threeDTypeGroup input[value="组六"]').check()
-    page.locator('#threeDOddGroup input[value="2"]').check()
-    page.locator("#threeDPositionInclude0").fill("1")
-    page.locator("#threeDPositionExclude1").fill("9")
-
-
 def assert_toolbox_home(page: Page) -> None:
     assert_text_visible(page, "#threeDToolboxTitle", "福彩3D工具箱")
     assert_text_visible(page, "#threeDFreshness", "最新")
@@ -494,27 +448,6 @@ def assert_trend_tool(page: Page) -> None:
     assert_no_page_horizontal_overflow(page)
     assert_matrix_scroll_contained(page)
     assert_not_loading_or_error(page)
-    assert_tap_targets(page)
-
-
-def assert_reduction_results(page: Page) -> None:
-    candidates = page.locator("[data-candidate-number]").count()
-    assert candidates > 0, candidates
-    assert_text_visible(page, "#threeDFilterResult", "筛后候选")
-    assert page.locator("#threeDFilterForm button[type='submit']").is_enabled()
-    assert_no_page_horizontal_overflow(page)
-    assert_not_loading_or_error(page)
-    assert_text_not_clipped(
-        page,
-        [
-            "#threeDFilterForm button[type='submit']",
-            "#threeDFilterSave",
-            "#threeDSelectedCount",
-            ".three-d-reduction-scale span",
-        ],
-    )
-    assert_no_key_overlap(page, ["#threeDFilterSave", "#threeDSelectedCount"])
-    assert_cta_not_covered(page, "#threeDFilterForm button[type='submit']")
     assert_tap_targets(page)
 
 

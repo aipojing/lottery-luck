@@ -267,219 +267,6 @@ def _open_3d_tool(page, tool_key):
     page.wait_for_selector(f'[data-three-d-tool-panel="{tool_key}"]:not([hidden])')
 
 
-def _reduction_attributes(number_text):
-    """The attributes the server computes for a candidate, derived from its digits."""
-    digits = [int(char) for char in number_text]
-    total = sum(digits)
-    unique = len(set(digits))
-    odd = sum(1 for digit in digits if digit % 2)
-    big = sum(1 for digit in digits if digit >= 5)
-    prime = sum(1 for digit in digits if digit in {2, 3, 5, 7})
-    sorted_unique = sorted(set(digits))
-    return {
-        "numbers": digits,
-        "number_text": number_text,
-        "sum": total,
-        "sum_tail": total % 10,
-        "span": max(digits) - min(digits),
-        "group_type": {1: "豹子", 2: "组三", 3: "组六"}[unique],
-        "odd_even": f"{odd}:{3 - odd}",
-        "big_small": f"{big}:{3 - big}",
-        "mod3": ":".join(
-            str(sum(1 for digit in digits if digit % 3 == remainder)) for remainder in range(3)
-        ),
-        "prime_composite": f"{prime}:{3 - prime}",
-        "repeat_count": 3 - unique,
-        "consecutive_pairs": [
-            [first, second]
-            for first, second in zip(sorted_unique, sorted_unique[1:])
-            if second - first == 1
-        ],
-        "adjacent_pairs": [
-            [index, index + 1]
-            for index in range(2)
-            if abs(digits[index] - digits[index + 1]) == 1
-        ],
-    }
-
-
-# 12 numbers that really satisfy the reduction conditions the test enters: 和值 6-18,
-# 跨度 1-8, 组六, 2 odd digits, 百位 in {6, 8}, 十位 excluding 0.
-_REDUCTION_CANDIDATE_NUMBERS = [
-    "615",
-    "617",
-    "631",
-    "635",
-    "651",
-    "653",
-    "813",
-    "815",
-    "831",
-    "835",
-    "851",
-    "853",
-]
-
-
-def _workbench_3d_reduction_payload(numbers=None):
-    candidates = list(_REDUCTION_CANDIDATE_NUMBERS if numbers is None else numbers)
-    return {
-        "filters": {
-            "sum_min": 6,
-            "sum_max": 18,
-            "span_min": 1,
-            "span_max": 8,
-            "types": ["组六"],
-            "odd_counts": [2],
-            "position_include": {"0": [6, 8]},
-            "position_exclude": {"1": [0]},
-            "max_results": 200,
-        },
-        "total": len(candidates),
-        "candidates": [
-            {
-                "number_text": number_text,
-                "numbers": [int(char) for char in number_text],
-                "attributes": _reduction_attributes(number_text),
-            }
-            for number_text in candidates
-        ],
-        "freshness": {
-            "status": "fresh",
-            "latest_issue": "2026182",
-            "latest_date": "2026-07-11",
-            "can_claim_current": True,
-        },
-        "actions": {
-            "can_filter_current": True,
-            "can_save_current": True,
-            "can_read_history": True,
-        },
-    }
-
-
-# The list on screen is capped, but a real reduction survives far more numbers than it can
-# show. These 25 numbers satisfy the very same conditions the test enters, and the server
-# reports a total of 137 for them: the space in (1000), the survivors (137) and the rendered
-# rows (20) are three different numbers on purpose, so none of them can stand in for another.
-_REDUCTION_DISPLAY_LIMIT = 20
-_REDUCTION_SERVER_TOTAL = 137
-_REDUCTION_OVERSIZED_NUMBERS = [
-    "613",
-    "615",
-    "617",
-    "619",
-    "631",
-    "635",
-    "637",
-    "639",
-    "651",
-    "653",
-    "657",
-    "671",
-    "673",
-    "675",
-    "691",
-    "693",
-    "813",
-    "815",
-    "817",
-    "819",
-    "831",
-    "835",
-    "837",
-    "851",
-    "853",
-]
-
-
-def _workbench_3d_oversized_reduction_payload(numbers=None):
-    """A reduction whose server total exceeds both the candidates sent and the display cap."""
-    payload = _workbench_3d_reduction_payload(
-        _REDUCTION_OVERSIZED_NUMBERS if numbers is None else numbers
-    )
-    return {**payload, "total": _REDUCTION_SERVER_TOTAL}
-
-
-def _fill_reduction_conditions(page):
-    """Enter one condition from each of the three control groups."""
-    page.locator("#threeDSumMin").fill("6")
-    page.locator("#threeDSumMax").fill("18")
-    page.locator("#threeDSpanMin").fill("1")
-    page.locator("#threeDSpanMax").fill("8")
-    page.locator('#threeDTypeGroup input[value="组六"]').check()
-    page.locator('#threeDOddGroup input[value="2"]').check()
-    page.locator("#threeDPositionInclude0").fill("6 8")
-    page.locator("#threeDPositionExclude1").fill("0")
-
-
-def _workbench_3d_filter_payload():
-    return {
-        "filters": {
-            "sum_min": 6,
-            "sum_max": 18,
-            "span_min": 1,
-            "span_max": 8,
-            "types": ["组三", "组六"],
-            "odd_counts": [1, 2],
-            "position_include": {"0": [6]},
-            "max_results": 200,
-        },
-        "total": 3,
-        "candidates": [
-            {
-                "number_text": "662",
-                "numbers": [6, 6, 2],
-                "attributes": {
-                    "numbers": [6, 6, 2],
-                    "number_text": "662",
-                    "sum": 14,
-                    "sum_tail": 4,
-                    "span": 4,
-                    "group_type": "组三",
-                    "odd_even": "0:3",
-                    "big_small": "2:1",
-                    "mod3": "2:1:0",
-                    "prime_composite": "1:2",
-                    "repeat_count": 1,
-                    "consecutive_pairs": [],
-                    "adjacent_pairs": [],
-                },
-            },
-            {
-                "number_text": "678",
-                "numbers": [6, 7, 8],
-                "attributes": {
-                    "numbers": [6, 7, 8],
-                    "number_text": "678",
-                    "sum": 21,
-                    "sum_tail": 1,
-                    "span": 2,
-                    "group_type": "组六",
-                    "odd_even": "1:2",
-                    "big_small": "3:0",
-                    "mod3": "1:1:1",
-                    "prime_composite": "1:2",
-                    "repeat_count": 0,
-                    "consecutive_pairs": [[6, 7], [7, 8]],
-                    "adjacent_pairs": [[0, 1], [1, 2]],
-                },
-            },
-        ],
-        "freshness": {
-            "status": "fresh",
-            "latest_issue": "2026182",
-            "latest_date": "2026-07-11",
-            "can_claim_current": True,
-        },
-        "actions": {
-            "can_filter_current": True,
-            "can_save_current": True,
-            "can_read_history": True,
-        },
-    }
-
-
 def _number_query_payload(number_text="006", window=30, sample_size=None):
     # The position stats can only come from the draws that really existed in the window,
     # so the fixture derives every omission fact from that sample instead of asserting a
@@ -1017,37 +804,8 @@ def test_retention_events_prediction_completed_once_after_real_success_only(
     assert len([event for event in events if event.get("event_name") == "prediction_completed"]) == completed_count
 
 
-def test_strategy_redirect_3d_shows_compat_band_without_redirect_and_keeps_other_games(
-    live_server_url,
-    browser_page,
-):
-    browser_page.goto(f"{live_server_url}/strategy.html?game=3d", wait_until="networkidle")
-
-    assert browser_page.url.endswith("/strategy.html?game=3d")
-    assert "专业能力已合并到3D工作台" in browser_page.locator("body").inner_text()
-    assert "旧入口保留兼容" in browser_page.locator("body").inner_text()
-    assert browser_page.locator("#strategyForm").is_hidden()
-    assert browser_page.locator("#strategyCompatPrimary").get_attribute("href") == "./analysis.html?game=3d&mode=pro&window=30"
-    assert browser_page.locator("#strategyCompatSecondary").get_attribute("href") == "./analysis.html?game=3d&mode=simple&window=30"
-    assert browser_page.evaluate("() => document.documentElement.scrollWidth <= document.documentElement.clientWidth")
-
-    browser_page.goto(f"{live_server_url}/strategy.html?game=ssq", wait_until="networkidle")
-
-    assert "专业能力已合并到3D工作台" not in browser_page.locator("body").inner_text()
-    assert browser_page.locator("#strategyForm").is_visible()
-    assert browser_page.locator("#generateButton").is_visible()
-    assert "双色球 · 策略" in browser_page.locator("#strategySummary").inner_text()
 
 
-def test_strategy_redirect_3d_mobile_has_no_horizontal_overflow(
-    live_server_url,
-    browser_page,
-):
-    browser_page.set_viewport_size({"width": 390, "height": 844})
-    browser_page.goto(f"{live_server_url}/strategy.html?game=3d", wait_until="networkidle")
-
-    assert "专业能力已合并到3D工作台" in browser_page.locator("body").inner_text()
-    assert browser_page.evaluate("() => document.documentElement.scrollWidth <= document.documentElement.clientWidth")
 
 
 def test_strategy_redirect_home_remains_prediction_and_3d_workbench_has_no_birth_form(
@@ -1186,6 +944,60 @@ def test_late_strategy_response_is_ignored_after_switching_to_data(live_server_u
     assert page.locator("#researchDataView").is_visible()
     assert page.locator("#researchStrategyView").is_hidden()
     assert "迟到标记" not in page.locator("#candidateResult").inner_text()
+
+
+def test_data_view_contains_observation_only(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=data")
+    browser_page.wait_for_selector("#researchDataView")
+    for selector in ["#filterForm", "#backtestForm", "#poolForm", "#poolCopyButton"]:
+        assert browser_page.locator(selector).count() == 0
+    assert browser_page.locator("#trendPanel").count() == 1
+    assert browser_page.locator("#recentPanel").count() == 1
+
+
+def test_3d_data_catalog_has_no_reduction_tile(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&view=data")
+    browser_page.wait_for_selector("[data-three-d-tool-key]")
+    assert browser_page.locator('[data-three-d-tool-key="reduction"]').count() == 0
+    assert browser_page.locator('[data-three-d-tool-panel="reduction"]').count() == 0
+
+
+def test_no_execution_controls_in_research_panels(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=strategy")
+    browser_page.wait_for_selector("#researchStrategyView")
+    body_text = browser_page.locator("#researchStrategyView").inner_text()
+    assert "号码篮" not in body_text
+    for selector in ["#copyResults", "#addAllResults", "[data-add-result]", "[data-download-results]"]:
+        assert browser_page.locator(f"#researchStrategyView {selector}").count() == 0
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=data")
+    browser_page.wait_for_selector("#researchDataView")
+    for selector in ["#copyResults", "#addAllResults", "[data-add-result]", "[data-download-results]"]:
+        assert browser_page.locator(f"#researchDataView {selector}").count() == 0
+
+
+def test_legacy_strategy_and_reduction_urls_replace_to_new_owner(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/strategy.html?game=dlt")
+    browser_page.wait_for_url("**/analysis.html?game=dlt&view=strategy")
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction&window=60")
+    browser_page.wait_for_url("**/tools.html?game=3d&tool=conditional&source=legacy")
+
+
+def test_3d_statistical_deep_links_continue_opening_data_view(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=trend")
+    browser_page.wait_for_selector("#threeDToolbox:not([hidden])")
+    assert browser_page.locator("#threeDToolWorkspace").is_visible()
+    assert "trend" in browser_page.evaluate("() => window.location.search")
+
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=attributes")
+    browser_page.wait_for_selector("#threeDToolbox:not([hidden])")
+    assert browser_page.locator("#threeDToolWorkspace").is_visible()
+
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=omission&window=60")
+    browser_page.wait_for_selector("#threeDToolbox:not([hidden])")
+    assert (
+        browser_page.locator('#threeDToolWindows [data-three-d-window="60"]').get_attribute("aria-pressed")
+        == "true"
+    )
 
 
 def test_retention_events_workbench_opened_waits_for_summary_success(
@@ -1951,33 +1763,13 @@ def test_3d_toolbox_ignores_late_plan_responses_and_filters_current_target(
     assert browser_page.locator("#threeDPlanDetailLink").get_attribute("href").endswith("id=current-plan")
 
 
-def test_3d_toolbox_flow_saves_manual_filter_query_and_recent_draws(
+def test_3d_toolbox_flow_renders_recent_query_and_xss_safe_freshness(
     live_server_url, browser_page
 ):
-    plan_posts = []
-    plan_patches = []
-    filter_requests = []
     query_requests = []
-    events = []
     summary = _workbench_summary_payload(active_plan_count=0, latest_plan=None)
     summary["freshness"]["message"] = "<img src=x onerror=alert(1)>数据已更新至第2026182期"
     summary["recent_draws"][0]["issue"] = "<script>2026182</script>"
-
-    def route_plans(route):
-        if route.request.method == "GET":
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({"plans": []}, ensure_ascii=False),
-            )
-            return
-        body = json.loads(route.request.post_data or "{}")
-        plan_posts.append(body)
-        route.fulfill(
-            status=201,
-            content_type="application/json",
-            body=json.dumps({"plan": {"id": f"plan-{len(plan_posts)}", **body}}, ensure_ascii=False),
-        )
 
     browser_page.route(
         f"{live_server_url}/api/workbench/3d/summary**",
@@ -1987,22 +1779,14 @@ def test_3d_toolbox_flow_saves_manual_filter_query_and_recent_draws(
             body=json.dumps(summary, ensure_ascii=False),
         ),
     )
-    browser_page.route(f"{live_server_url}/api/plans", route_plans)
-    def route_patch_plan(route):
-        plan_patches.append(json.loads(route.request.post_data or "{}"))
-        route.fulfill(
+    browser_page.route(
+        f"{live_server_url}/api/plans",
+        lambda route: route.fulfill(
             status=200,
             content_type="application/json",
-            body=json.dumps({"plan": {"id": "patched-plan"}}, ensure_ascii=False),
-        )
-
-    def route_filter(route):
-        filter_requests.append(json.loads(route.request.post_data or "{}"))
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_3d_filter_payload(), ensure_ascii=False),
-        )
+            body=json.dumps({"plans": []}, ensure_ascii=False),
+        ),
+    )
 
     def route_query(route):
         body = json.loads(route.request.post_data or "{}")
@@ -2016,17 +1800,17 @@ def test_3d_toolbox_flow_saves_manual_filter_query_and_recent_draws(
             ),
         )
 
-    def route_events(route):
-        events.append(json.loads(route.request.post_data or "{}"))
-        route.fulfill(status=200, content_type="application/json", body='{"accepted":true}')
-
-    browser_page.route(f"{live_server_url}/api/plans/*", route_patch_plan)
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
     browser_page.route(f"{live_server_url}/api/3d/number-query", route_query)
-    browser_page.route(f"{live_server_url}/api/events", route_events)
+    browser_page.route(
+        f"{live_server_url}/api/events",
+        lambda route: route.fulfill(status=200, content_type="application/json", body='{"accepted":true}'),
+    )
 
     browser_page.goto(f"{live_server_url}/analysis.html?game=3d")
-    browser_page.wait_for_function("() => document.querySelector('#threeDManualSave')?.disabled === false")
+    browser_page.wait_for_function("() => document.querySelector('#threeDToolbox')?.hidden === false")
+    browser_page.wait_for_function(
+        "() => document.querySelector('#threeDFreshness')?.textContent.includes('数据已更新至第2026182期')"
+    )
 
     assert browser_page.locator("#threeDFreshness img").count() == 0
     assert "<img src=x onerror=alert(1)>" in browser_page.locator("#threeDFreshness").inner_text()
@@ -2035,54 +1819,6 @@ def test_3d_toolbox_flow_saves_manual_filter_query_and_recent_draws(
     assert browser_page.locator("#threeDRecentDraws script").count() == 0
     assert browser_page.locator("#threeDRecentDraws li").count() == 10
     assert "<script>2026182</script>" in browser_page.locator("#threeDRecentDraws").inner_text()
-
-    browser_page.go_back()
-    browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
-    _open_3d_tool(browser_page, "reduction")
-    browser_page.locator("#threeDManualNumber").fill("456")
-    browser_page.locator("#threeDManualSave").click()
-    browser_page.wait_for_function("() => document.querySelector('#threeDPlanDetailLink')?.hidden === false")
-
-    assert len(plan_posts) == 1
-    assert plan_posts[0]["source_type"] == "manual"
-    assert plan_posts[0]["target_issue"] == "2026183"
-    assert plan_posts[0]["target_draw_date"] == "2026-07-12"
-    assert plan_posts[0]["entries"] == [
-        {"position": 0, "main_numbers": [4, 5, 6], "special_numbers": [], "note": ""}
-    ]
-    assert plan_posts[0]["condition_snapshot"]["mode"] == "simple"
-    assert plan_posts[0]["condition_snapshot"]["latest_data_issue"] == "2026182"
-
-    browser_page.locator("#threeDSumMin").fill("6")
-    browser_page.locator("#threeDSumMax").fill("18")
-    browser_page.locator("#threeDSpanMin").fill("1")
-    browser_page.locator("#threeDSpanMax").fill("8")
-    browser_page.locator('#threeDTypeGroup input[value="组三"]').check()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterForm button[type=\"submit\"]')?.disabled === false"
-    )
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function("() => document.querySelectorAll('[data-candidate-number]').length >= 2")
-
-    assert filter_requests[-1]["window"] == 30
-    assert filter_requests[-1]["filters"]["sum_min"] == 6
-    assert filter_requests[-1]["filters"]["max_results"] == 200
-    result_text = browser_page.locator("#threeDFilterResult").inner_text()
-    assert "原始范围 1000 组" in result_text
-    assert "筛后候选 3 组" in result_text
-
-    browser_page.locator('[data-candidate-number="662"]').check()
-    browser_page.locator("#threeDFilterSave").click()
-    browser_page.wait_for_function("() => document.querySelector('#threeDFilterStatus')?.textContent.includes('已保存')")
-
-    assert len(plan_posts) == 2
-    assert plan_posts[1]["source_type"] == "filter"
-    assert plan_posts[1]["entries"] == [
-        {"position": 0, "main_numbers": [6, 6, 2], "special_numbers": [], "note": ""}
-    ]
-    assert plan_posts[1]["condition_snapshot"]["conditions"]["types"] == ["组三"]
-    assert plan_patches == []
 
     browser_page.go_back()
     browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
@@ -2098,9 +1834,6 @@ def test_3d_toolbox_flow_saves_manual_filter_query_and_recent_draws(
     assert "组选" in query_text
     assert "1" in query_text
     assert "2" in query_text
-    edited_events = [event for event in events if event.get("event_name") == "plan_edited"]
-    assert [event["properties"]["source_type"] for event in edited_events] == ["manual", "filter"]
-    assert all("candidate_count" in event["properties"] for event in edited_events)
 
 
 def _stub_3d_toolbox_shell(browser_page, live_server_url, summary=None):
@@ -2163,18 +1896,19 @@ def test_3d_tool_events_record_open_once_and_result_only_on_active_submit(
 ):
     """tool_opened fires once per tool; tool_result_generated only on a real submitted result."""
     events = []
-    filter_requests = []
-    filter_fails = {"value": False}
+    query_requests = []
+    query_fails = {"value": False}
 
-    def route_filter(route):
-        filter_requests.append(json.loads(route.request.post_data or "{}"))
-        if filter_fails["value"]:
+    def route_query(route):
+        body = json.loads(route.request.post_data or "{}")
+        query_requests.append(body)
+        if query_fails["value"]:
             route.fulfill(status=500, content_type="application/json", body='{"detail":"boom"}')
             return
         route.fulfill(
             status=200,
             content_type="application/json",
-            body=json.dumps(_workbench_3d_filter_payload(), ensure_ascii=False),
+            body=json.dumps(_number_query_payload(body["number"], window=body["window"]), ensure_ascii=False),
         )
 
     def route_events(route):
@@ -2183,54 +1917,48 @@ def test_3d_tool_events_record_open_once_and_result_only_on_active_submit(
 
     _stub_3d_toolbox_shell(browser_page, live_server_url)
     browser_page.route(f"{live_server_url}/api/events", route_events)
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
+    browser_page.route(f"{live_server_url}/api/3d/number-query", route_query)
 
     browser_page.goto(f"{live_server_url}/analysis.html?game=3d")
     browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
 
-    _open_3d_tool(browser_page, "reduction")
+    _open_3d_tool(browser_page, "number")
     opened = _wait_for_events(browser_page, events, "tool_opened", 1)
-    assert opened[0]["properties"] == {"game_key": "3d", "tool_key": "reduction", "window": 30}
+    assert opened[0]["properties"] == {"game_key": "3d", "tool_key": "number", "window": 30}
 
     # Re-opening the same tool is not a first open, and no render along the way records again.
     browser_page.go_back()
     browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
-    _open_3d_tool(browser_page, "reduction")
+    _open_3d_tool(browser_page, "number")
     browser_page.wait_for_timeout(300)
     assert len(_named_events(events, "tool_opened")) == 1
     assert _named_events(events, "tool_result_generated") == []
 
-    # A submitted reduction that really came back records exactly one result event.
-    _fill_reduction_conditions(browser_page)
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function("() => document.querySelectorAll('[data-candidate-number]').length >= 2")
+    # A submitted query that really came back records exactly one result event.
+    browser_page.locator("#threeDNumberQueryInput").fill("006")
+    with browser_page.expect_response(f"{live_server_url}/api/3d/number-query"):
+        browser_page.locator("#threeDNumberQueryForm button[type='submit']").click()
+    browser_page.wait_for_function("() => document.querySelector('#threeDNumberQueryResult')?.textContent.includes('直选')")
     generated = _wait_for_events(browser_page, events, "tool_result_generated", 1)
     assert generated[0]["properties"] == {
         "game_key": "3d",
-        "tool_key": "reduction",
-        "result_count": 3,
+        "tool_key": "number",
+        "result_count": 1,
     }
 
-    # A background refresh re-runs the same conditions and re-renders the same candidates.
-    # The user submitted nothing, so it must not record a second result.
-    requests_before_refresh = len(filter_requests)
+    # Re-rendering the payload already on screen records nothing new.
     browser_page.locator("#threeDFreshness").get_by_role("button", name="重试").click()
-    _wait_until(
-        browser_page,
-        lambda: len(filter_requests) > requests_before_refresh,
-        "the background refresh never re-ran the reduction",
-    )
     browser_page.wait_for_timeout(300)
     assert len(_named_events(events, "tool_result_generated")) == 1
     assert len(_named_events(events, "tool_opened")) == 1
 
     # A failed submit records nothing at all.
-    filter_fails["value"] = True
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
+    query_fails["value"] = True
+    browser_page.locator("#threeDNumberQueryInput").fill("007")
+    with browser_page.expect_response(f"{live_server_url}/api/3d/number-query"):
+        browser_page.locator("#threeDNumberQueryForm button[type='submit']").click()
     browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterFeedback')?.classList.contains('is-error') === true"
+        "() => document.querySelector('#threeDNumberQueryFeedback')?.classList.contains('is-error') === true"
     )
     browser_page.wait_for_timeout(300)
     assert len(_named_events(events, "tool_result_generated")) == 1
@@ -2638,681 +2366,9 @@ def test_3d_attributes_tool_drops_stale_result_on_input_change_and_reports_inval
     assert "和值" not in result.inner_text()
 
 
-def test_3d_toolbox_reuses_request_id_for_unsuccessful_save_retry_until_content_changes(
-    live_server_url, browser_page
-):
-    plan_posts = []
-
-    browser_page.route(
-        f"{live_server_url}/api/workbench/3d/summary**",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_summary_payload(), ensure_ascii=False),
-        ),
-    )
-
-    def route_plans(route):
-        if route.request.method == "GET":
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({"plans": []}, ensure_ascii=False),
-            )
-            return
-        body = json.loads(route.request.post_data or "{}")
-        plan_posts.append(body)
-        route.abort("failed")
-
-    browser_page.route(f"{live_server_url}/api/plans", route_plans)
-    browser_page.route(
-        f"{live_server_url}/api/events",
-        lambda route: route.fulfill(status=200, content_type="application/json", body='{"accepted":true}'),
-    )
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_function("() => document.querySelector('#threeDManualSave')?.disabled === false")
-
-    browser_page.locator("#threeDManualNumber").fill("456")
-    browser_page.locator("#threeDManualSave").click()
-    browser_page.wait_for_function("() => window.LotteryProduct.pendingPlans().length === 1")
-    first_request_id = browser_page.evaluate("() => window.LotteryProduct.pendingPlans()[0].request_id")
-
-    with browser_page.expect_request(f"{live_server_url}/api/plans"):
-        browser_page.locator("#threeDManualSave").click()
-
-    browser_page.evaluate(
-        """
-        () => {
-          const pending = window.LotteryProduct.pendingPlans();
-          window.__pendingIdsForTest = pending.map((plan) => plan.request_id);
-        }
-        """
-    )
-    pending_ids = browser_page.evaluate("() => window.__pendingIdsForTest")
-    assert [post["request_id"] for post in plan_posts[:2]] == [first_request_id, first_request_id]
-    assert pending_ids == [first_request_id]
-
-    browser_page.locator("#threeDManualNumber").fill("457")
-    with browser_page.expect_request(f"{live_server_url}/api/plans"):
-        browser_page.locator("#threeDManualSave").click()
-
-    assert plan_posts[2]["request_id"] != first_request_id
-    assert plan_posts[2]["entries"][0]["main_numbers"] == [4, 5, 7]
-
-
-def test_3d_toolbox_patches_same_source_target_plan_and_handles_stale_data(
-    live_server_url, browser_page
-):
-    latest_plan = {
-        "id": "draft-manual",
-        "game_key": "3d",
-        "target_issue": "2026183",
-        "target_draw_date": "2026-07-12",
-        "source_type": "manual",
-        "status": "draft",
-        "entries": [{"position": 0, "main_numbers": [1, 2, 3], "special_numbers": [], "note": ""}],
-        "condition_snapshot": {
-            "mode": "simple",
-            "analysis_window": 30,
-            "conditions": {},
-            "metrics": {"sum": 6},
-            "latest_data_issue": "2026182",
-            "latest_data_date": "2026-07-11",
-        },
-    }
-    patches = []
-
-    browser_page.route(
-        f"{live_server_url}/api/workbench/3d/summary**",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(
-                _workbench_summary_payload(active_plan_count=1, latest_plan=latest_plan),
-                ensure_ascii=False,
-            ),
-        ),
-    )
-    browser_page.route(
-        f"{live_server_url}/api/plans",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps({"plans": [latest_plan]}, ensure_ascii=False),
-        ),
-    )
-    def route_draft_patch(route):
-        body = json.loads(route.request.post_data or "{}")
-        patches.append(body)
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps({"plan": {**latest_plan, **body}}, ensure_ascii=False),
-        )
-
-    browser_page.route(f"{live_server_url}/api/plans/draft-manual", route_draft_patch)
-    browser_page.route(
-        f"{live_server_url}/api/events",
-        lambda route: route.fulfill(status=200, content_type="application/json", body='{"accepted":true}'),
-    )
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_function("() => document.querySelector('#threeDManualSave')?.disabled === false")
-    browser_page.locator("#threeDManualNumber").fill("789")
-    browser_page.locator("#threeDManualSave").click()
-    browser_page.wait_for_function("() => document.querySelector('#threeDPlanDetailLink')?.href.includes('draft-manual')")
-
-    assert patches == [
-        {
-            "title": "手动选号",
-            "status": "draft",
-            "entries": [
-                {"position": 0, "main_numbers": [7, 8, 9], "special_numbers": [], "note": ""}
-            ],
-            "condition_snapshot": {
-                "mode": "simple",
-                "analysis_window": 30,
-                "conditions": {},
-                "metrics": {"sum": 24, "sum_tail": 4, "span": 2, "group_type": "组六", "repeat_count": 0},
-                "latest_data_issue": "2026182",
-                "latest_data_date": "2026-07-11",
-            },
-        }
-    ]
-
-    browser_page.unroute(f"{live_server_url}/api/workbench/3d/summary**")
-    stale = _workbench_summary_payload(
-        status="stale",
-        can_save=False,
-        current_target=None,
-        active_plan_count=0,
-        latest_plan=None,
-    )
-    stale["current_target"] = None
-    browser_page.route(
-        f"{live_server_url}/api/workbench/3d/summary**",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(stale, ensure_ascii=False),
-        ),
-    )
-    browser_page.reload()
-    browser_page.wait_for_function("() => document.querySelector('#threeDFreshness')?.textContent.includes('数据待更新')")
-
-    assert browser_page.locator("#threeDManualSave").is_disabled()
-    assert browser_page.locator("#threeDFilterForm button[type='submit']").is_disabled()
-    assert browser_page.locator("#threeDRecentDraws li").count() == 10
-
-
 # A rendered 出次统计 on a 390px phone: chrome, the definition line, the window tabs and the
 # 3x10 matrix. Well below what the tool really draws (~790px), far above a blank page.
 MOBILE_TOOL_VIEW_MIN_CONTENT_HEIGHT = 600
-
-
-def test_3d_toolbox_legacy_pro_link_window_position_filters_and_mobile_overflow(
-    live_server_url, browser_page
-):
-    summary_calls = []
-    filter_requests = []
-
-    def route_summary(route):
-        window_match = re.search(r"window=(\d+)", route.request.url)
-        window = int(window_match.group(1)) if window_match else 30
-        summary_calls.append(window)
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_summary_payload(window=window), ensure_ascii=False),
-        )
-
-    browser_page.route(f"{live_server_url}/api/workbench/3d/summary**", route_summary)
-    browser_page.route(
-        f"{live_server_url}/api/plans",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps({"plans": []}, ensure_ascii=False),
-        ),
-    )
-    def route_pro_filter(route):
-        filter_requests.append(json.loads(route.request.post_data or "{}"))
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_3d_filter_payload(), ensure_ascii=False),
-        )
-
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_pro_filter)
-    browser_page.route(
-        f"{live_server_url}/api/events",
-        lambda route: route.fulfill(status=200, content_type="application/json", body='{"accepted":true}'),
-    )
-
-    # The legacy ?mode=pro deep link migrates onto the tool contract.
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&mode=pro&window=60")
-    browser_page.wait_for_selector('[data-three-d-tool-panel="frequency"]:not([hidden])')
-    browser_page.wait_for_function(
-        "() => window.location.search === '?game=3d&tool=frequency&window=60'"
-    )
-
-    assert summary_calls == [60]
-    assert browser_page.locator('[data-three-d-tool-panel="frequency"] table').count() >= 1
-    # The window, the real sample and the disclaimer are visible; the mechanics are in 说明.
-    assert "近60期" in browser_page.locator("#threeDToolDefinition").inner_text()
-    assert "出次是这个数字在该位置开出过的期数" in _open_tool_definition(browser_page)
-    assert browser_page.locator('[data-three-d-window="60"]').get_attribute("aria-pressed") == "true"
-
-    browser_page.locator('[data-three-d-window="120"]').click()
-    browser_page.wait_for_function("() => new URLSearchParams(location.search).get('window') === '120'")
-
-    assert summary_calls[-1] == 120
-    assert browser_page.locator('[data-three-d-window="120"]').get_attribute("aria-pressed") == "true"
-
-    browser_page.go_back()
-    browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
-    _open_3d_tool(browser_page, "reduction")
-    browser_page.locator("#threeDPositionInclude0").fill("6 8")
-    browser_page.locator("#threeDPositionExclude1").fill("0")
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterForm button[type=\"submit\"]')?.disabled === false"
-    )
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterResult')?.textContent.includes('筛后候选 3 组')"
-    )
-
-    assert filter_requests[-1]["window"] == 120
-    assert filter_requests[-1]["filters"]["position_include"] == {"0": [6, 8]}
-    assert filter_requests[-1]["filters"]["position_exclude"] == {"1": [0]}
-
-    browser_page.locator("#threeDPositionInclude0").fill("")
-    browser_page.locator("#threeDPositionExclude1").fill("")
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    assert "position_include" not in filter_requests[-1]["filters"]
-    assert "position_exclude" not in filter_requests[-1]["filters"]
-
-    browser_page.set_viewport_size({"width": 390, "height": 844})
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&mode=pro&window=30")
-    browser_page.wait_for_function("() => document.querySelector('#threeDToolbox')?.hidden === false")
-    layout = browser_page.evaluate(
-        """
-        () => {
-          // Every tapped control counts, not only <button>: the toolbox also navigates with
-          // real anchors (历史方案, 查看详情), and they are tapped with the same thumb.
-          const controls = Array.from(
-            document.querySelectorAll("#threeDToolbox button, #threeDToolbox a[href]"),
-          ).filter((node) => node.offsetParent !== null);
-          const measured = controls.map((node) => ({
-            tag: node.tagName.toLowerCase(),
-            label: (node.textContent || node.getAttribute("aria-label") || "").trim().slice(0, 20),
-            height: Math.round(node.getBoundingClientRect().height),
-          }));
-          return {
-            pageOverflow: document.documentElement.scrollWidth > window.innerWidth,
-            controlCount: measured.length,
-            undersizedControls: measured.filter((item) => item.height < 40),
-            contentHeight: Math.round(document.body.getBoundingClientRect().height),
-            digitCells: document.querySelectorAll(
-              '[data-three-d-tool-panel="frequency"] [data-digit-cell]',
-            ).length,
-          };
-        }
-        """
-    )
-    assert layout["pageOverflow"] is False
-    # The guard can only fail if it really measured the controls it claims to measure.
-    assert layout["controlCount"] >= 5, layout
-    assert layout["undersizedControls"] == [], layout
-    # This used to assert the page was taller than the phone's fold. That was a proxy for "a
-    # real page rendered, not a blank one", and it stopped being true for the right reason: the
-    # tool view no longer stacks the toolbox-home chrome above the tool, so 出次统计 now fits a
-    # 390x844 screen. What the guard was actually protecting is asserted directly instead — the
-    # full 3x10 matrix is on screen, and it is not floating in an empty page.
-    assert layout["digitCells"] == 30, layout
-    assert layout["contentHeight"] >= MOBILE_TOOL_VIEW_MIN_CONTENT_HEIGHT, layout
-
-
-def _route_reduction_plans(plan_posts):
-    """GET returns no plans, so every save is a create the test can inspect."""
-
-    def route(route_):
-        if route_.request.method == "GET":
-            route_.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({"plans": []}, ensure_ascii=False),
-            )
-            return
-        body = json.loads(route_.request.post_data or "{}")
-        plan_posts.append(body)
-        route_.fulfill(
-            status=201,
-            content_type="application/json",
-            body=json.dumps(
-                {"plan": {"id": f"plan-{len(plan_posts)}", **body}}, ensure_ascii=False
-            ),
-        )
-
-    return route
-
-
-def test_3d_reduction_tool_reports_scale_and_saves_selected_candidates_as_filter_plan(
-    live_server_url, browser_page
-):
-    plan_posts = []
-    filter_requests = []
-
-    def route_filter(route):
-        filter_requests.append(json.loads(route.request.post_data or "{}"))
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_3d_reduction_payload(), ensure_ascii=False),
-        )
-
-    _stub_3d_toolbox_shell(browser_page, live_server_url)
-    browser_page.route(f"{live_server_url}/api/plans", _route_reduction_plans(plan_posts))
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterForm button[type=\"submit\"]')?.disabled === false"
-    )
-
-    # The form reads as three control groups: 数值范围 / 号码形态 / 位置约束.
-    panel = browser_page.locator('[data-three-d-tool-panel="reduction"]')
-    assert panel.locator("#threeDRangeGroup").is_visible()
-    assert panel.locator("#threeDShapeGroup").is_visible()
-    assert panel.locator("#threeDPositionGroup").is_visible()
-
-    _fill_reduction_conditions(browser_page)
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelectorAll('[data-candidate-number]').length === 12"
-    )
-
-    # The backend filter semantics are unchanged: the same call, the same filter keys.
-    assert filter_requests[-1]["window"] == 30
-    assert filter_requests[-1]["filters"] == {
-        "sum_min": 6,
-        "sum_max": 18,
-        "span_min": 1,
-        "span_max": 8,
-        "types": ["组六"],
-        "odd_counts": [2],
-        "position_include": {"0": [6, 8]},
-        "position_exclude": {"1": [0]},
-        "max_results": 200,
-    }
-
-    # The reduction reports its real scale: the full 000-999 space in, the server's own
-    # total out. Never the length of the (paginated) list on screen.
-    assert browser_page.get_by_text("原始范围 1000 组").is_visible()
-    assert browser_page.get_by_text("筛后候选 12 组").is_visible()
-    assert browser_page.locator("[data-candidate-number]").count() == 12
-
-    browser_page.locator('[data-candidate-number="615"]').check()
-    browser_page.locator('[data-candidate-number="853"]').check()
-    assert "已选 2 组" in browser_page.locator("#threeDSelectedCount").inner_text()
-
-    browser_page.locator("#threeDFilterSave").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterStatus')?.textContent.includes('已保存')"
-    )
-
-    assert len(plan_posts) == 1
-    saved_payload = plan_posts[0]
-    assert saved_payload["source_type"] == "filter"
-    assert saved_payload["target_issue"] == "2026183"
-    assert saved_payload["entries"] == [
-        {"position": 0, "main_numbers": [6, 1, 5], "special_numbers": [], "note": ""},
-        {"position": 1, "main_numbers": [8, 5, 3], "special_numbers": [], "note": ""},
-    ]
-    # The snapshot's window field is `analysis_window` on the wire: the product client
-    # whitelists snapshot keys and the plan API forbids extras, so a bare `window` key
-    # would never reach the backend. It records the window the candidates came from.
-    assert saved_payload["condition_snapshot"]["analysis_window"] == 30
-    assert saved_payload["condition_snapshot"]["mode"] == "pro"
-    assert saved_payload["condition_snapshot"]["conditions"] == filter_requests[-1]["filters"]
-    assert saved_payload["condition_snapshot"]["latest_data_issue"] == "2026182"
-
-
-def test_3d_reduction_scale_reports_server_total_not_the_rendered_list_length(
-    live_server_url, browser_page
-):
-    def route_filter(route):
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_3d_oversized_reduction_payload(), ensure_ascii=False),
-        )
-
-    _stub_3d_toolbox_shell(browser_page, live_server_url)
-    browser_page.route(f"{live_server_url}/api/plans", _route_reduction_plans([]))
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterForm button[type=\"submit\"]')?.disabled === false"
-    )
-    _fill_reduction_conditions(browser_page)
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelectorAll('[data-candidate-number]').length > 0"
-    )
-
-    # The server survived 137 numbers, sent 25 of them, and the page renders 20. The three
-    # numbers disagree, so passing the rendered length off as the total cannot go unnoticed.
-    assert len(_REDUCTION_OVERSIZED_NUMBERS) > _REDUCTION_DISPLAY_LIMIT
-    assert _REDUCTION_SERVER_TOTAL > len(_REDUCTION_OVERSIZED_NUMBERS)
-    assert browser_page.get_by_text("原始范围 1000 组").is_visible()
-    assert browser_page.get_by_text(f"筛后候选 {_REDUCTION_SERVER_TOTAL} 组").is_visible()
-    assert browser_page.get_by_text(f"显示前 {_REDUCTION_DISPLAY_LIMIT} 组").is_visible()
-    assert browser_page.locator("[data-candidate-number]").count() == _REDUCTION_DISPLAY_LIMIT
-
-    # The cap really is a cap on the head of the list, not a random sample of it.
-    shown = _REDUCTION_OVERSIZED_NUMBERS[:_REDUCTION_DISPLAY_LIMIT]
-    assert browser_page.locator(f'[data-candidate-number="{shown[-1]}"]').count() == 1
-    for hidden_number in _REDUCTION_OVERSIZED_NUMBERS[_REDUCTION_DISPLAY_LIMIT:]:
-        assert browser_page.locator(f'[data-candidate-number="{hidden_number}"]').count() == 0
-
-
-def test_3d_reduction_keeps_a_still_valid_selection_pushed_past_the_display_limit(
-    live_server_url, browser_page
-):
-    filter_calls = []
-    # The second run returns the same survivors in a different order, which pushes the
-    # selected number from the head of the list to the tail, past the display cap.
-    rotated = _REDUCTION_OVERSIZED_NUMBERS[1:] + _REDUCTION_OVERSIZED_NUMBERS[:1]
-    selected = _REDUCTION_OVERSIZED_NUMBERS[0]
-
-    def route_filter(route):
-        filter_calls.append(json.loads(route.request.post_data or "{}"))
-        numbers = _REDUCTION_OVERSIZED_NUMBERS if len(filter_calls) == 1 else rotated
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(
-                _workbench_3d_oversized_reduction_payload(numbers), ensure_ascii=False
-            ),
-        )
-
-    _stub_3d_toolbox_shell(browser_page, live_server_url)
-    browser_page.route(f"{live_server_url}/api/plans", _route_reduction_plans([]))
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterForm button[type=\"submit\"]')?.disabled === false"
-    )
-    _fill_reduction_conditions(browser_page)
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelectorAll('[data-candidate-number]').length === 20"
-    )
-
-    browser_page.locator(f'[data-candidate-number="{selected}"]').check()
-    assert "已选 1 组" in browser_page.locator("#threeDSelectedCount").inner_text()
-
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        f"() => document.querySelector('[data-candidate-number=\"{rotated[0]}\"]')"
-        " && document.querySelectorAll('[data-candidate-number]').length === 20"
-    )
-
-    # The number still survives the conditions, so it stays selected and saveable even though
-    # the reorder pushed it off the visible page. Selection follows the survivors, not the page.
-    assert rotated.index(selected) >= _REDUCTION_DISPLAY_LIMIT
-    assert browser_page.locator(f'[data-candidate-number="{selected}"]').count() == 0
-    assert "已选 1 组" in browser_page.locator("#threeDSelectedCount").inner_text()
-
-
-def test_3d_reduction_tool_keeps_conditions_editable_but_blocks_current_issue_when_stale(
-    live_server_url, browser_page
-):
-    filter_requests = []
-    plan_posts = []
-
-    def route_filter(route):
-        filter_requests.append(json.loads(route.request.post_data or "{}"))
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_3d_reduction_payload(), ensure_ascii=False),
-        )
-
-    _stub_3d_toolbox_shell(
-        browser_page,
-        live_server_url,
-        summary=_workbench_summary_payload(status="stale", can_save=False),
-    )
-    browser_page.route(f"{live_server_url}/api/plans", _route_reduction_plans(plan_posts))
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_selector('[data-three-d-tool-panel="reduction"]:not([hidden])')
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterResult')?.textContent.includes('数据待更新')"
-    )
-
-    # The conditions stay editable under stale data; only claiming the current issue is gated.
-    _fill_reduction_conditions(browser_page)
-    assert browser_page.locator("#threeDSumMin").is_editable()
-    assert browser_page.locator("#threeDPositionInclude0").input_value() == "6 8"
-    assert browser_page.locator('#threeDTypeGroup input[value="组六"]').is_checked()
-
-    # The block states the data date it is blocking on, so the user knows what is stale.
-    assert "2026-07-11" in browser_page.locator("#threeDFilterResult").inner_text()
-    assert browser_page.locator("#threeDFilterForm button[type='submit']").is_disabled()
-    assert browser_page.locator("#threeDFilterSave").is_disabled()
-    assert browser_page.locator("#threeDManualSave").is_disabled()
-
-    # The manual save is disabled by the same stale data, so its own status says why:
-    # a reason two sections away is a reason the user never connects to the dead button.
-    manual_status = browser_page.locator("#threeDManualStatus").inner_text()
-    assert "数据待更新" in manual_status, manual_status
-    assert "2026-07-11" in manual_status, manual_status
-
-    # Submitting the form anyway is blocked before the request goes out.
-    browser_page.evaluate("() => document.querySelector('#threeDFilterForm').requestSubmit()")
-    browser_page.wait_for_timeout(300)
-
-    assert filter_requests == []
-    assert plan_posts == []
-    assert browser_page.locator("[data-candidate-number]").count() == 0
-
-
-def test_3d_reduction_failure_keeps_candidates_and_save_plan_snapshot_matches_its_source(
-    live_server_url, browser_page
-):
-    plan_posts = []
-    filter_calls = []
-    save_failures = []
-
-    def route_filter(route):
-        filter_calls.append(json.loads(route.request.post_data or "{}"))
-        if len(filter_calls) == 2:
-            route.fulfill(status=503, content_type="application/json", body='{"detail":"down"}')
-            return
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(_workbench_3d_reduction_payload(), ensure_ascii=False),
-        )
-
-    def route_plans(route):
-        if route.request.method == "GET":
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body=json.dumps({"plans": []}, ensure_ascii=False),
-            )
-            return
-        body = json.loads(route.request.post_data or "{}")
-        if len(save_failures) < 2:
-            save_failures.append(body)
-            route.fulfill(
-                status=503, content_type="application/json", body='{"detail":"down"}'
-            )
-            return
-        plan_posts.append(body)
-        route.fulfill(
-            status=201,
-            content_type="application/json",
-            body=json.dumps(
-                {"plan": {"id": f"plan-{len(plan_posts)}", **body}}, ensure_ascii=False
-            ),
-        )
-
-    _stub_3d_toolbox_shell(browser_page, live_server_url)
-    browser_page.route(f"{live_server_url}/api/plans", route_plans)
-    browser_page.route(f"{live_server_url}/api/3d/filter", route_filter)
-
-    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterForm button[type=\"submit\"]')?.disabled === false"
-    )
-    _fill_reduction_conditions(browser_page)
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelectorAll('[data-candidate-number]').length === 12"
-    )
-    browser_page.locator('[data-candidate-number="615"]').check()
-
-    # A failed save keeps the request id, so retrying the same plan cannot create a duplicate.
-    with browser_page.expect_response(f"{live_server_url}/api/plans"):
-        browser_page.locator("#threeDFilterSave").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterStatus')?.textContent.includes('保存暂不可用')"
-    )
-    with browser_page.expect_response(f"{live_server_url}/api/plans"):
-        browser_page.locator("#threeDFilterSave").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterStatus')?.textContent.includes('保存暂不可用')"
-    )
-
-    assert len(save_failures) == 2
-    assert save_failures[0]["request_id"] == save_failures[1]["request_id"]
-
-    # A failed refresh keeps the last candidates and the selection, and offers a retry.
-    browser_page.locator("#threeDSumMin").fill("7")
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterFeedback')?.textContent.includes('重试')"
-    )
-
-    assert browser_page.locator("[data-candidate-number]").count() == 12
-    assert browser_page.locator('[data-candidate-number="615"]').is_checked()
-    assert browser_page.get_by_text("筛后候选 12 组").is_visible()
-
-    # 重试 means "run the conditions that failed", not "run whatever is in the form now": an
-    # edit made after the failure must not be submitted under the label of a retry.
-    browser_page.locator("#threeDSumMin").fill("9")
-    with browser_page.expect_response(f"{live_server_url}/api/3d/filter"):
-        browser_page.locator("#threeDFilterFeedback button").click()
-    browser_page.wait_for_function(
-        "() => document.querySelectorAll('[data-candidate-number]').length === 12"
-    )
-
-    assert filter_calls[2]["filters"]["sum_min"] == 7
-    assert filter_calls[2]["filters"] == filter_calls[1]["filters"]
-
-    # The retried conditions are the ones the candidates came from, so they are the ones the
-    # plan claims — and they differ from the failed save's plan, which mints a new request id.
-    browser_page.locator('[data-candidate-number="615"]').check()
-    browser_page.locator("#threeDFilterSave").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterStatus')?.textContent.includes('已保存')"
-    )
-
-    assert len(plan_posts) == 1
-    assert plan_posts[0]["source_type"] == "filter"
-    assert plan_posts[0]["request_id"] != save_failures[0]["request_id"]
-    assert plan_posts[0]["condition_snapshot"]["mode"] == "pro"
-    assert plan_posts[0]["condition_snapshot"]["conditions"]["sum_min"] == 7
-
-    # A manual save after a filter run is not a filter plan: it may not inherit the filter's
-    # conditions or its snapshot mode.
-    browser_page.locator("#threeDManualNumber").fill("456")
-    browser_page.locator("#threeDManualSave").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDManualStatus')?.textContent.includes('已保存')"
-    )
-
-    assert len(plan_posts) == 2
-    assert plan_posts[1]["source_type"] == "manual"
-    assert plan_posts[1]["condition_snapshot"]["mode"] == "simple"
-    assert plan_posts[1]["condition_snapshot"]["conditions"] == {}
 
 
 ADMIN_SESSION_KEY = "lottery_luck_admin_session"
@@ -3443,7 +2499,7 @@ def test_3d_toolbox_first_screen_exposes_tools_and_has_no_mobile_overflow(
 
     assert page.get_by_role("heading", name="福彩3D工具箱").is_visible()
     assert page.get_by_role("button", name="走势图").is_visible()
-    assert page.get_by_role("button", name="缩水选号").is_visible()
+    assert page.get_by_role("button", name="最近开奖").is_visible()
     assert page.locator("#threeDToolbox").evaluate(
         "node => node.scrollWidth <= document.documentElement.clientWidth"
     )
@@ -3550,7 +2606,7 @@ def test_3d_toolbox_mobile_first_screen_shows_status_and_six_tools_above_the_fol
     measured = _measure_mobile_first_screen(page)
 
     assert measured["scrollY"] == 0, measured
-    assert page.locator("[data-three-d-tool-key]").count() == 8, measured
+    assert page.locator("[data-three-d-tool-key]").count() == 7, measured
     # The count may never be bought by shrinking tiles below the touch floor.
     assert measured["minTileHeight"] >= MOBILE_TAP_TARGET_FLOOR, measured
     assert measured["statusFullyVisible"], measured
@@ -3664,15 +2720,12 @@ def test_3d_tool_view_lifts_tool_data_above_the_home_chrome(
 # A tile row that stops short of its grid's right edge leaves bordered dead space: the
 # "超长空白" the visual rules forbid. One pixel of slack absorbs sub-pixel rounding only.
 TOOL_ROW_EDGE_SLACK = 1
-# The reduction form may show one panel. Boxes inside boxes ("卡片嵌套") are forbidden, so
-# the deepest chain of visibly boxed containers around any of its fields is exactly 1.
-REDUCTION_MAX_CONTAINER_DEPTH = 1
 
 
 def _measure_tool_group_rows(page):
     """Per tool group, per tile row: does the row reach the right edge of its grid?
 
-    The groups hold 4 / 2 / 1 / 1 tools. A fixed 4-column grid therefore leaves empty
+    The groups hold 4 / 2 / 1 tools. A fixed 4-column grid therefore leaves empty
     cells, and because the grid paints the cell borders those cells read as bordered dead
     areas. Measuring the row's right edge against the grid's content box catches exactly
     that, at whatever column count the viewport resolves to.
@@ -3725,85 +2778,11 @@ def test_3d_tool_groups_never_leave_an_empty_grid_cell(live_server_url, browser_
         groups = _measure_tool_group_rows(page)
         print(f"tool_group_rows@{viewport['width']}:", json.dumps(groups, ensure_ascii=False))
 
-        assert sum(group["tileCount"] for group in groups) == 8, groups
+        assert sum(group["tileCount"] for group in groups) == 7, groups
         for group in groups:
             assert group["tileCount"] > 0, group
             for row in group["rows"]:
                 assert row["gapToEdge"] <= TOOL_ROW_EDGE_SLACK, (viewport, group, row)
-
-
-def _measure_reduction_container_depth(page):
-    """Deepest chain of visibly boxed containers wrapping a reduction-form control.
-
-    A container counts as visibly boxed when it paints a full border ring or fills its own
-    background: that is what a reader sees as a card. A one-sided hairline rule is a
-    separator, not a card, so it does not count. Form controls are not containers.
-    """
-    return page.evaluate(
-        """
-        () => {
-          const panel = document.querySelector('[data-three-d-tool-panel="reduction"]');
-          const form = document.querySelector("#threeDFilterForm");
-          if (!panel || !form) return null;
-          const CONTAINER_TAGS = new Set(["SECTION", "FORM", "FIELDSET", "DIV"]);
-          const boxed = (node) => {
-            if (!CONTAINER_TAGS.has(node.tagName)) return false;
-            const style = getComputedStyle(node);
-            const sides = ["Top", "Right", "Bottom", "Left"];
-            const ring = sides.every(
-              (side) =>
-                style[`border${side}Style`] !== "none" &&
-                parseFloat(style[`border${side}Width`] || "0") > 0
-            );
-            const color = style.backgroundColor || "";
-            const match = color.match(/rgba?\\(([^)]+)\\)/);
-            const alpha = match ? parseFloat((match[1].split(",")[3] || "1").trim()) : 0;
-            const filled = alpha > 0.02 || style.backgroundImage !== "none";
-            return ring || filled;
-          };
-          // Walk every field of the form up to the panel and count the boxes on the way.
-          const fields = Array.from(form.querySelectorAll("input, button"));
-          let deepest = 0;
-          const worst = [];
-          for (const field of fields) {
-            const chain = [];
-            for (let node = field.parentElement; node; node = node.parentElement) {
-              if (boxed(node)) {
-                chain.push(node.id || node.className || node.tagName);
-              }
-              if (node === panel) break;
-            }
-            if (chain.length > deepest) {
-              deepest = chain.length;
-              worst.length = 0;
-              worst.push({ field: field.id || field.name || field.type, chain });
-            }
-          }
-          return { depth: deepest, worst };
-        }
-        """
-    )
-
-
-def test_3d_reduction_form_shows_at_most_one_level_of_visible_container(
-    live_server_url, browser_page
-):
-    """Guard: the reduction form is one panel with labelled sections, not boxes in boxes."""
-    page = browser_page
-    page.set_viewport_size({"width": 390, "height": 844})
-    _stub_3d_toolbox_shell(page, live_server_url)
-    page.goto(f"{live_server_url}/analysis.html?game=3d&tool=reduction")
-    page.wait_for_selector("#threeDFilterForm")
-
-    measured = _measure_reduction_container_depth(page)
-    print("reduction_container_depth:", json.dumps(measured, ensure_ascii=False))
-
-    assert measured is not None
-    assert measured["depth"] <= REDUCTION_MAX_CONTAINER_DEPTH, measured
-    # The grouping itself must survive the flattening: the legends stay for screen readers.
-    assert page.locator("#threeDFilterForm fieldset").count() == 5
-    for legend in ("数值范围", "号码形态", "组态", "奇数个数", "位置约束"):
-        assert page.locator("#threeDFilterForm legend", has_text=legend).count() == 1, legend
 
 
 def _route_3d_toolbox_apis(page, live_server_url, summary_factory):
@@ -4045,9 +3024,9 @@ def test_3d_toolbox_secondary_text_meets_wcag_aa_contrast(live_server_url, brows
     measured.append(_contrast_ratio(page, "#threeDTrendPanel table thead th"))
 
     page.go_back()
-    _open_3d_tool(page, "reduction")
-    measured.append(_contrast_ratio(page, "#threeDTargetLabel"))
-    measured.append(_contrast_ratio(page, "#threeDTypeGroup legend"))
+    _open_3d_tool(page, "number")
+    measured.append(_contrast_ratio(page, "#threeDQueryTitle"))
+    measured.append(_contrast_ratio(page, "#threeDNumberQueryForm label span"))
 
     failing = [item for item in measured if item["ratio"] < item["required"]]
     assert failing == [], failing
@@ -4079,7 +3058,7 @@ def test_3d_toolbox_icons_are_painted_in_a_visible_color(live_server_url, browse
     page.wait_for_selector("#threeDToolHome:not([hidden])")
 
     tiles = page.evaluate(_ICON_CONTRAST_SCRIPT, "[data-three-d-tool-key] .three-d-icon")
-    assert len(tiles) == 8, tiles
+    assert len(tiles) == 7, tiles
     for icon in tiles:
         assert icon["width"] > 0, icon
         assert "assets/icons/" in icon["maskImage"], icon
@@ -4590,7 +3569,7 @@ def test_3d_trend_tool_failed_window_refresh_keeps_last_result(
     assert "近60期" not in status.inner_text()
 
 
-def test_3d_tool_error_survives_plan_save_and_summary_retry(
+def test_3d_tool_error_survives_summary_retry(
     live_server_url, browser_page
 ):
     """Renders that are not a tool load may not relabel a stale panel as freshly loaded."""
@@ -4672,27 +3651,11 @@ def test_3d_tool_error_survives_plan_save_and_summary_retry(
     )
     status = page.locator('[data-three-d-tool-panel="trend"] [data-tool-status]')
 
-    # Saving a plan refreshes plans and the summary and re-renders everything. That is not a
-    # trend load, so it may not erase the trend panel's error while stale rows are on screen.
-    # The save re-reads the summary; wait for that response so the follow-up render has run.
+    # The freshness 重试 button reloads the summary through a non-tool-load path and
+    # re-renders everything. That may not erase the trend panel's error while stale rows
+    # are on screen; wait for the summary response so the follow-up render has run.
     with page.expect_response(re.compile(r"/api/workbench/3d/summary")):
-        page.evaluate(
-            """() => {
-                document.querySelector('#threeDManualNumber').value = '123';
-                document.querySelector('#threeDManualForm').requestSubmit();
-            }"""
-        )
-    page.wait_for_function(
-        "() => document.querySelector('#threeDManualStatus')?.textContent.includes('已保存')"
-    )
-    page.wait_for_timeout(800)
-
-    assert status.get_attribute("data-state") == "error"
-    assert "加载失败" in status.inner_text()
-    assert page.locator('[data-three-d-tool-panel="trend"] tbody tr').count() == len(TREND_DRAWS)
-
-    # The freshness 重试 button reloads the summary through the same non-tool-load path.
-    page.locator("#threeDFreshness").get_by_role("button", name="重试").click()
+        page.locator("#threeDFreshness").get_by_role("button", name="重试").click()
     page.wait_for_timeout(800)
 
     assert status.get_attribute("data-state") == "error"
@@ -4836,7 +3799,7 @@ def test_3d_toolbox_catalog_and_route_contract(
     page = browser_page
     page.goto(f"{live_server_url}/analysis.html?game=ssq")
     page.wait_for_function("Boolean(window.ThreeDToolbox)")
-    assert page.evaluate("window.ThreeDToolbox.TOOLS.length") == 8
+    assert page.evaluate("window.ThreeDToolbox.TOOLS.length") == 7
     assert page.evaluate("window.ThreeDToolbox.normalizeTool('omission')") == "omission"
     assert page.evaluate("window.ThreeDToolbox.normalizeTool('unknown')") == ""
     assert page.evaluate("window.ThreeDToolbox.normalizeWindow('60')") == 60
@@ -9301,7 +8264,7 @@ def test_3d_toolbox_shows_no_developer_facing_copy_on_any_tool(live_server_url, 
 
     toolbox = browser_page.locator("#threeDToolbox")
     seen_disclaimers = 0
-    for tool_key in ["trend", "omission", "frequency", "heat", "number", "attributes", "reduction", "recent"]:
+    for tool_key in ["trend", "omission", "frequency", "heat", "number", "attributes", "recent"]:
         _open_3d_tool(browser_page, tool_key)
         visible_text = toolbox.inner_text()
         for internal_copy in INTERNAL_TOOLBOX_COPY:
@@ -9318,7 +8281,7 @@ def test_3d_toolbox_shows_no_developer_facing_copy_on_any_tool(live_server_url, 
         browser_page.go_back()
         browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
 
-    assert seen_disclaimers == 8
+    assert seen_disclaimers == 7
 def test_number_tools_page_exposes_all_cards_and_top_level_navigation(live_server_url, browser_page):
     page = browser_page
     page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")

@@ -176,54 +176,48 @@ def test_3d_retention_flow_preserves_plan_snapshot_review_and_events(
     assert fortune_plan["condition_snapshot"]["latest_data_issue"] == LATEST_ISSUE
     assert fortune_plan["review"] is None
 
-    browser_page.goto(
-        f"{live_server_url}/analysis.html?game=3d&tool=reduction&window=120&today={TODAY.isoformat()}"
+    filter_conditions = {
+        "sum_min": 6,
+        "sum_max": 18,
+        "span_min": 1,
+        "span_max": 8,
+        "types": ["组六"],
+        "odd_counts": [2],
+        "position_include": {"0": [1], "2": [3]},
+        "position_exclude": {"1": [9]},
+    }
+    # 条件缩水 moved to the number tools, so the filter plan is created through the plan API
+    # with the same structured payload the removed reduction UI used to send.
+    create_response = TestClient(app).post(
+        "/api/plans",
+        headers={"X-Lottery-Client-Id": CLIENT_ID},
+        json={
+            "game_key": "3d",
+            "target_issue": TARGET_ISSUE,
+            "target_draw_date": TARGET_DRAW_DATE,
+            "source_type": "filter",
+            "request_id": "task15-retention-filter-plan",
+            "title": "筛选方案",
+            "entries": [
+                {"position": 0, "main_numbers": [1, 2, 3], "special_numbers": [], "note": ""}
+            ],
+            "condition_snapshot": {
+                "mode": "pro",
+                "analysis_window": 120,
+                "conditions": filter_conditions,
+                "metrics": {},
+                "latest_data_issue": LATEST_ISSUE,
+                "latest_data_date": TODAY.isoformat(),
+            },
+        },
     )
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDManualSave')?.disabled === false",
-        timeout=5000,
-    )
-    assert browser_page.locator('[data-three-d-tool-panel="reduction"]').is_visible()
-    assert "本期 2026194 / 2026-07-13" in browser_page.locator("#threeDTargetLabel").inner_text()
-
-    browser_page.locator("#threeDSumMin").fill("6")
-    browser_page.locator("#threeDSumMax").fill("18")
-    browser_page.locator("#threeDSpanMin").fill("1")
-    browser_page.locator("#threeDSpanMax").fill("8")
-    browser_page.locator('#threeDTypeGroup input[value="组六"]').check()
-    browser_page.locator('#threeDOddGroup input[value="2"]').check()
-    browser_page.locator("#threeDPositionInclude0").fill("1")
-    browser_page.locator("#threeDPositionExclude1").fill("9")
-    browser_page.locator("#threeDPositionInclude2").fill("3")
-
-    with browser_page.expect_response(re.compile(r"/api/3d/filter(?:\\?|$)")):
-        browser_page.locator("#threeDFilterForm button[type='submit']").click()
-    browser_page.wait_for_function(
-        "() => document.querySelectorAll('[data-candidate-number]').length > 0",
-        timeout=5000,
-    )
-    # The reduction states the scale it really achieved against the real backend: the whole
-    # three-digit space in, and the server's own total out — not the length of the capped list.
-    reduction_result = browser_page.locator("#threeDFilterResult").inner_text()
-    assert "原始范围 1000 组" in reduction_result
-    reduced_total = int(re.search(r"筛后候选 (\d+) 组", reduction_result).group(1))
-    shown = browser_page.locator("[data-candidate-number]").count()
-    assert 0 < shown <= reduced_total < 1000
-
-    first_candidate = browser_page.locator("[data-candidate-number]").nth(0)
-    candidate_number = first_candidate.get_attribute("data-candidate-number")
-    first_candidate.check()
-    browser_page.locator("#threeDFilterSave").click()
-    browser_page.wait_for_function(
-        "() => document.querySelector('#threeDFilterStatus').textContent.includes('已保存')",
-        timeout=5000,
-    )
-    filter_plan_id = _latest_plan_id_by_source(isolated_repo, "filter")
+    assert create_response.status_code == 201
+    filter_plan_id = create_response.json()["plan"]["id"]
     filter_plan = _plan_by_id(isolated_repo, filter_plan_id)
     assert filter_plan["source_type"] == "filter"
     assert filter_plan["target_issue"] == TARGET_ISSUE
     assert filter_plan["review"] is None
-    assert filter_plan["entries"][0]["main_numbers"] == [int(char) for char in candidate_number]
+    assert filter_plan["entries"][0]["main_numbers"] == [1, 2, 3]
     snapshot = filter_plan["condition_snapshot"]
     assert snapshot["mode"] == "pro"
     assert snapshot["analysis_window"] == 120
@@ -299,31 +293,15 @@ def test_3d_retention_flow_preserves_plan_snapshot_review_and_events(
 
     events = _events(isolated_repo)
     event_names = _event_names_from_rows(events)
-    assert event_names[:2] == ["prediction_completed", "plan_saved"]
-    # Deep-linking into a tool loads the summary and brings the panel up in the same tick, so
-    # workbench_opened and tool_opened are posted together and their arrival order says
-    # nothing. Everything the user did afterwards stays strictly ordered.
-    assert sorted(event_names[2:4]) == ["tool_opened", "workbench_opened"]
-    assert event_names[4:] == [
-        "tool_result_generated",
-        "plan_edited",
+    assert event_names == [
+        "prediction_completed",
+        "plan_saved",
         "review_viewed",
         "plan_carried_forward",
     ]
-    assert event_names.count("plan_edited") == 1
     assert event_names.count("plan_saved") == 1
     assert event_names.count("review_viewed") == 1
-    # The reduction panel opened once and produced one submitted result: the renders, the plan
-    # save and the summary refresh in between recorded nothing.
-    assert event_names.count("tool_opened") == 1
-    assert event_names.count("tool_result_generated") == 1
-    tool_events = [event for event in events if event["event_name"].startswith("tool_")]
-    assert [event["properties"] for event in tool_events] == [
-        # 缩水选号 sends the statistics window with its request — here the 120 the deep link
-        # carried, the same window the saved plan's snapshot records — so the open event says so.
-        {"game_key": "3d", "tool_key": "reduction", "window": 120},
-        {"game_key": "3d", "tool_key": "reduction", "result_count": reduced_total},
-    ]
+    assert event_names.count("plan_carried_forward") == 1
     _assert_events_safe(events)
 
 
@@ -339,13 +317,12 @@ def test_stale_home_and_workbench_disable_current_saves(
         assert browser_page.locator("#savePlanButton").is_disabled()
         assert "过期" in browser_page.locator("#planSaveStatus").inner_text()
 
-        browser_page.goto(f"{url}/analysis.html?game=3d&tool=reduction")
-        browser_page.wait_for_function(
-            "() => document.querySelector('#threeDManualSave')?.disabled === true",
-            timeout=5000,
-        )
-        assert browser_page.locator("#threeDManualSave").is_disabled()
-        assert browser_page.locator("#threeDFilterSave").is_disabled()
+        # The 3D manual/filter save controls lived in the reduction panel, which moved to the
+        # number tools; the research center no longer offers a save surface to go stale here.
+        browser_page.goto(f"{url}/analysis.html?game=3d")
+        browser_page.wait_for_function("() => document.querySelector('#threeDToolbox')?.hidden === false")
+        assert browser_page.locator("#threeDManualSave").count() == 0
+        assert browser_page.locator("#threeDFilterSave").count() == 0
 
 
 def test_save_500_and_network_pending_retry_preserve_prediction_and_are_idempotent(

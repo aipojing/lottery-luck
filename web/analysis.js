@@ -706,12 +706,26 @@ els.analysisWindowTabs.addEventListener("click", (event) => {
   loadAnalysis();
 });
 
-initFromUrl();
-renderAnalysisWindowTabs();
-applyResearchView();
-loadGames().then(async () => {
-  if (state.activeView === "data") {
-    await loadActiveGame();
-  }
-  notifyResearchSubscribers();
-});
+// Old 3D selection deep links (reduction/filter) now belong to the number tools. Replace
+// the navigation before any data request or toolbox routing runs, so nothing observes the
+// legacy route. Legal observation tool params keep flowing through the data view.
+function redirectLegacySelectionRoute() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("game") !== "3d") return false;
+  const tool = params.get("tool");
+  if (tool !== "reduction" && tool !== "filter") return false;
+  window.location.replace("./tools.html?game=3d&tool=conditional&source=legacy");
+  return true;
+}
+
+if (!redirectLegacySelectionRoute()) {
+  initFromUrl();
+  renderAnalysisWindowTabs();
+  applyResearchView();
+  loadGames().then(async () => {
+    if (state.activeView === "data") {
+      await loadActiveGame();
+    }
+    notifyResearchSubscribers();
+  });
+}

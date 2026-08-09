@@ -391,7 +391,7 @@ def test_analysis_page_serves_analysis_workbench():
     assert 'id="threeDToolHome"' in response.text
     assert 'id="threeDToolWorkspace"' in response.text
     assert 'id="threeDToolPanels"' in response.text
-    assert 'data-three-d-tool-panel="reduction"' in response.text
+    assert 'data-three-d-tool-panel="reduction"' not in response.text
     assert "./three-d-toolbox.js" in response.text
     assert "./workbench-3d.css" in response.text
     assert "./workbench-3d.js" in response.text
@@ -418,16 +418,16 @@ def test_analysis_page_serves_analysis_workbench():
     assert 'href="./admin.html"' not in response.text
 
 
-def test_strategy_page_serves_strategy_lab_shell():
+def test_strategy_page_serves_redirect_shell():
     response = client.get("/strategy.html")
 
     assert response.status_code == 200
     assert "策略实验室" in response.text
-    assert 'id="strategyLab"' in response.text
-    assert "./strategy.js" in response.text
+    assert "./strategy-redirect.js" in response.text
+    assert "./strategy.js" not in response.text
+    assert 'id="strategyLab"' not in response.text
     assert 'class="header-nav"' in response.text
     assert 'aria-label="页面目录"' in response.text
-    assert 'aria-current="page">策略实验室' in response.text
     assert "meta-divider" not in response.text
     assert 'href="./admin.html"' not in response.text
 
@@ -620,8 +620,9 @@ def test_3d_workbench_assets_are_served_and_do_not_use_inner_html():
     assert "window.ThreeDWorkbench" in js.text
     assert "window.ThreeDToolbox" in toolbox.text
     assert "LotteryProduct.request" in js.text
-    assert "LotteryProduct.createPlan" in js.text
-    assert "LotteryProduct.updatePlan" in js.text
+    assert "LotteryProduct.listPlans" in js.text
+    assert "LotteryProduct.createPlan" not in js.text
+    assert "LotteryProduct.updatePlan" not in js.text
     # Both files of the 3D toolbox render API text into the DOM, so both stay on DOM APIs.
     for source in (js.text, toolbox.text):
         assert ".innerHTML" not in source
@@ -1582,16 +1583,13 @@ def test_frontend_styles_are_served():
     assert "--gold" in response.text
 
 
-def test_analysis_and_strategy_assets_include_sports_lottery_tabs():
+def test_analysis_asset_includes_sports_lottery_tabs():
     analysis_response = client.get("/analysis.js")
-    strategy_response = client.get("/strategy.js")
 
     assert analysis_response.status_code == 200
-    assert strategy_response.status_code == 200
-    for text in (analysis_response.text, strategy_response.text):
-        assert "大乐透" in text
-        assert "排列3" in text
-        assert 'const VISIBLE_GAME_KEYS = ["ssq", "dlt", "3d", "pl3", "kl8"];' in text
+    assert "大乐透" in analysis_response.text
+    assert "排列3" in analysis_response.text
+    assert 'const VISIBLE_GAME_KEYS = ["ssq", "dlt", "3d", "pl3", "kl8"];' in analysis_response.text
 
 
 def test_admin_data_health_endpoint_returns_game_rows_and_logs():

@@ -11,12 +11,11 @@
     { key: "heat", group: "stats", icon: "flame", title: "冷热码", description: "看哪些数字冷、哪些热" },
     { key: "number", group: "query", icon: "search", title: "号码查询", description: "查直选、组选和历史命中" },
     { key: "attributes", group: "query", icon: "list-filter", title: "号码属性", description: "查和值、跨度、奇偶等" },
-    { key: "reduction", group: "selection", icon: "sliders-horizontal", title: "缩水选号", description: "按条件减少候选范围" },
     { key: "recent", group: "records", icon: "history", title: "最近开奖", description: "查看最近10期真实开奖" },
   ]);
   const TOOL_KEYS = new Set(TOOLS.map((tool) => tool.key));
-  // Every tool that sends a statistics window with its own request: the four statistics tools,
-  // 号码查询/号码属性 (their position stats are computed over that window) and 缩水选号. Their URL
+  // Every tool that sends a statistics window with its own request: the four statistics tools
+  // and 号码查询/号码属性 (their position stats are computed over that window). Their URL
   // carries the window, so a shared or reloaded link queries the same window it was made with.
   // 最近开奖 shows the fixed latest draws and asks for no window, so its URL carries none.
   const WINDOW_TOOLS = new Set([
@@ -26,7 +25,6 @@
     "heat",
     "number",
     "attributes",
-    "reduction",
   ]);
   // The statistics tools are the only ones that offer a window switcher in the workspace; the
   // other window-reading tools take the window their link carried.
@@ -34,7 +32,6 @@
   const GROUP_TARGETS = Object.freeze({
     stats: "#threeDStatsTools",
     query: "#threeDQueryTools",
-    selection: "#threeDSelectionTools",
     records: "#threeDRecordTools",
   });
   // The CSS custom property that carries each tool's Lucide file into the icon mask.

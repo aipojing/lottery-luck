@@ -101,10 +101,6 @@
             <h2 id="threeDQueryToolsTitle">号码查询</h2>
             <div class="three-d-tool-grid" id="threeDQueryTools"></div>
           </section>
-          <section class="three-d-tool-group" aria-labelledby="threeDSelectionToolsTitle">
-            <h2 id="threeDSelectionToolsTitle">选号工具</h2>
-            <div class="three-d-tool-grid" id="threeDSelectionTools"></div>
-          </section>
           <section class="three-d-tool-group" aria-labelledby="threeDRecordToolsTitle">
             <h2 id="threeDRecordToolsTitle">开奖记录</h2>
             <div class="three-d-tool-grid" id="threeDRecordTools"></div>
@@ -192,90 +188,6 @@
               <p class="three-d-tool-status" id="threeDAttributesFeedback" data-tool-feedback role="status" hidden></p>
               <div class="three-d-result" id="threeDAttributesResult" data-tool-result role="status">等待查询。</div>
               <p class="three-d-tool-status" data-tool-status>号码属性只按你输入的三位数字算出，与历史开奖无关，也不代表未来概率。</p>
-            </section>
-
-            <section class="three-d-tool-panel" data-three-d-tool-panel="reduction" aria-labelledby="threeDFilterTitle" hidden>
-              <div class="three-d-band-head">
-                <h3 id="threeDManualTitle">手动号码</h3>
-                <span id="threeDTargetLabel">本期目标：--</span>
-              </div>
-              <form class="three-d-inline-form" id="threeDManualForm">
-                <label for="threeDManualNumber">
-                  <span>三位号码</span>
-                  <input id="threeDManualNumber" name="manual_number" inputmode="numeric" autocomplete="off" maxlength="3" pattern="[0-9]{3}" placeholder="123" />
-                </label>
-                <div class="three-d-action-row">
-                  <button class="tool-action" type="submit" id="threeDManualSave">保存手动</button>
-                  <button class="tool-action secondary" type="button" id="threeDRandomSave">随机一组</button>
-                </div>
-              </form>
-              <p class="three-d-tool-status" id="threeDManualStatus" role="status">等待输入。</p>
-
-              <div class="three-d-band-head">
-                <h3 id="threeDFilterTitle">缩水条件</h3>
-                <span id="threeDFilterSummary">等待条件。</span>
-              </div>
-              <form class="three-d-filter-form" id="threeDFilterForm">
-                <fieldset class="three-d-filter-group" id="threeDRangeGroup">
-                  <legend>数值范围</legend>
-                  <div class="three-d-filter-fields">
-                    <label for="threeDSumMin">
-                      <span>和值下限</span>
-                      <input id="threeDSumMin" type="number" min="0" max="27" value="0" />
-                    </label>
-                    <label for="threeDSumMax">
-                      <span>和值上限</span>
-                      <input id="threeDSumMax" type="number" min="0" max="27" value="27" />
-                    </label>
-                    <label for="threeDSpanMin">
-                      <span>跨度下限</span>
-                      <input id="threeDSpanMin" name="span_min" type="number" min="0" max="9" value="0" />
-                    </label>
-                    <label for="threeDSpanMax">
-                      <span>跨度上限</span>
-                      <input id="threeDSpanMax" name="span_max" type="number" min="0" max="9" value="9" />
-                    </label>
-                  </div>
-                </fieldset>
-                <fieldset class="three-d-filter-group" id="threeDShapeGroup">
-                  <legend>号码形态</legend>
-                  <div class="three-d-filter-fields three-d-filter-fields-shape">
-                    <fieldset class="three-d-checks" id="threeDTypeGroup">
-                      <legend>组态</legend>
-                      <label><input type="checkbox" name="types" value="豹子" />豹子</label>
-                      <label><input type="checkbox" name="types" value="组三" />组三</label>
-                      <label><input type="checkbox" name="types" value="组六" />组六</label>
-                    </fieldset>
-                    <fieldset class="three-d-checks" id="threeDOddGroup">
-                      <legend>奇数个数</legend>
-                      <label><input type="checkbox" name="odd_counts" value="0" />0</label>
-                      <label><input type="checkbox" name="odd_counts" value="1" />1</label>
-                      <label><input type="checkbox" name="odd_counts" value="2" />2</label>
-                      <label><input type="checkbox" name="odd_counts" value="3" />3</label>
-                    </fieldset>
-                  </div>
-                </fieldset>
-                <fieldset class="three-d-filter-group" id="threeDPositionGroup">
-                  <legend>位置约束</legend>
-                  <div class="three-d-position-filters" aria-label="位置条件">
-                    <label for="threeDPositionInclude0"><span>百位包含</span><input id="threeDPositionInclude0" inputmode="numeric" autocomplete="off" placeholder="6 8" /></label>
-                    <label for="threeDPositionExclude0"><span>百位排除</span><input id="threeDPositionExclude0" inputmode="numeric" autocomplete="off" /></label>
-                    <label for="threeDPositionInclude1"><span>十位包含</span><input id="threeDPositionInclude1" inputmode="numeric" autocomplete="off" /></label>
-                    <label for="threeDPositionExclude1"><span>十位排除</span><input id="threeDPositionExclude1" inputmode="numeric" autocomplete="off" placeholder="0" /></label>
-                    <label for="threeDPositionInclude2"><span>个位包含</span><input id="threeDPositionInclude2" inputmode="numeric" autocomplete="off" /></label>
-                    <label for="threeDPositionExclude2"><span>个位排除</span><input id="threeDPositionExclude2" inputmode="numeric" autocomplete="off" /></label>
-                  </div>
-                </fieldset>
-                <button class="tool-action" type="submit">生成候选</button>
-              </form>
-              <div class="three-d-candidate-toolbar">
-                <span id="threeDSelectedCount">已选 0 组</span>
-                <button class="tool-action secondary" type="button" id="threeDFilterSave" disabled>保存筛选</button>
-              </div>
-              <div class="three-d-result" id="threeDFilterResult" role="status">等待生成。</div>
-              <p class="three-d-tool-status" id="threeDFilterFeedback" data-tool-feedback role="status" hidden aria-hidden="true"></p>
-              <p class="three-d-tool-status" id="threeDFilterStatus" role="status">尚未保存筛选方案。</p>
-              <p class="three-d-tool-status" data-tool-status>缩水只按你设定的条件减少候选范围，不代表未来概率。</p>
             </section>
 
             <section class="three-d-tool-panel" data-three-d-tool-panel="recent" aria-labelledby="threeDRecentTitle" hidden>
