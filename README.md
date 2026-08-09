@@ -4,6 +4,11 @@
 
 > 本项目仅供娱乐和数据分析参考，不构成投注建议，不销售彩票，不提供代购服务，不承诺中奖或收益。
 
+## 在线体验
+
+- Web 前端：[https://lottery-luck-web.vercel.app/](https://lottery-luck-web.vercel.app/)
+- API 健康检查：[https://lottery-luck-api.vercel.app/api/health](https://lottery-luck-api.vercel.app/api/health)
+
 ## 当前能力
 
 - 支持彩种：双色球、大乐透、福彩3D、排列3、快乐8。
@@ -103,8 +108,8 @@ DeepSeek API Key 由用户在首页“AI 设置”中填写，连接验证通过
 
 生产部署使用两个 Vercel 项目：
 
-- API 项目：Root Directory 设为仓库根目录。只在该项目配置 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS`、`LOTTERY_LUCK_QUOTA_ENABLED=false`。
-- Web 项目：Root Directory 设为 `frontend`。只配置 `API_BASE_URL=https://<api-project>.vercel.app`，不要配置 DeepSeek、Turso 或管理口令。
+- API 项目：[https://lottery-luck-api.vercel.app/](https://lottery-luck-api.vercel.app/)。Root Directory 设为仓库根目录，只在该项目配置 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS`、`LOTTERY_LUCK_QUOTA_ENABLED=false`。
+- Web 项目：[https://lottery-luck-web.vercel.app/](https://lottery-luck-web.vercel.app/)。Root Directory 设为 `frontend`，只配置 `API_BASE_URL=https://lottery-luck-api.vercel.app`，不要配置 DeepSeek、Turso 或管理口令。
 
 Turso 导入和核对顺序：
 
