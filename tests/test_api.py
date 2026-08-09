@@ -413,7 +413,7 @@ def test_analysis_page_serves_analysis_workbench():
     assert 'id="commonViewPanel"' in response.text
     assert 'class="header-nav"' in response.text
     assert 'aria-label="页面目录"' in response.text
-    assert 'aria-current="page">数据分析' in response.text
+    assert 'aria-current="page">研究中心' in response.text
     assert "meta-divider" not in response.text
     assert 'href="./admin.html"' not in response.text
 

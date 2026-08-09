@@ -29,15 +29,20 @@
           </div>
           <nav class="header-nav" aria-label="页面目录">
             <a class="page-link" href="./">预测首页</a>
-            <a class="page-link active" href="./analysis.html?game=ssq" aria-current="page">数据分析</a>
-            <a class="page-link" href="./strategy.html?game=ssq">策略实验室</a>
-            <a class="page-link" href="./tools.html">选号工具</a>
+            <a class="page-link active" href="./analysis.html?game=ssq&view=data" aria-current="page">研究中心</a>
+            <a class="page-link" href="./tools.html?game=ssq&tool=quick">选号工具</a>
           </nav>
         </div>
       </header>
 
       <nav class="game-tabs" id="gameTabs" aria-label="彩种切换"></nav>
 
+      <div class="research-view-tabs" id="researchViewTabs" role="tablist" aria-label="研究视图">
+        <button type="button" role="tab" id="researchDataTab" aria-controls="researchDataView" aria-selected="true" data-research-view="data">数据观察</button>
+        <button type="button" role="tab" id="researchStrategyTab" aria-controls="researchStrategyView" aria-selected="false" data-research-view="strategy">策略验证</button>
+      </div>
+
+      <div class="research-view-panel" id="researchDataView" role="tabpanel" aria-labelledby="researchDataTab">
       <section class="analysis-workbench standalone" id="analysisWorkbench" aria-label="数据分析">
         <div class="analysis-head">
           <div>
@@ -59,120 +64,6 @@
         <div class="analysis-suite">
           <article class="analysis-card number-panel" id="numberPanel"></article>
           <article class="analysis-card trend-panel" id="trendPanel"></article>
-
-          <article class="analysis-card filter-panel">
-            <div class="analysis-card-head">
-              <h3>号码筛选器</h3>
-              <span>条件生成</span>
-            </div>
-            <form class="tool-form" id="filterForm">
-              <label>
-                <span>排除近 N 期</span>
-                <input name="exclude_recent" type="number" min="0" max="30" value="2" />
-              </label>
-              <label>
-                <span>至少热号</span>
-                <input name="min_hot" type="number" min="0" max="10" value="1" />
-              </label>
-              <label>
-                <span>奇偶比</span>
-                <input name="odd_even" value="3:3" />
-              </label>
-              <label>
-                <span>和值下限</span>
-                <input name="sum_min" type="number" value="80" />
-              </label>
-              <label>
-                <span>和值上限</span>
-                <input name="sum_max" type="number" value="130" />
-              </label>
-              <label>
-                <span>最大连号长度</span>
-                <input name="max_consecutive_run" type="number" min="1" max="10" value="2" />
-              </label>
-              <label>
-                <span>AC 值下限</span>
-                <input name="ac_min" type="number" min="0" placeholder="4" />
-              </label>
-              <label>
-                <span>AC 值上限</span>
-                <input name="ac_max" type="number" min="0" placeholder="12" />
-              </label>
-              <label>
-                <span>质合比</span>
-                <input name="prime_composite" placeholder="2:4" />
-              </label>
-              <label>
-                <span>012 路比</span>
-                <input name="mod3" placeholder="2:2:2" />
-              </label>
-              <label>
-                <span>区间比</span>
-                <input name="zone" placeholder="2:2:2" />
-              </label>
-              <label>
-                <span>排除尾数</span>
-                <input name="tail_exclude" placeholder="0 5" />
-              </label>
-              <label>
-                <span>包含尾数</span>
-                <input name="tail_include" placeholder="1 8" />
-              </label>
-              <label>
-                <span>最小遗漏</span>
-                <input name="min_omission" type="number" min="0" placeholder="8" />
-              </label>
-              <button class="tool-action" type="submit">生成候选</button>
-            </form>
-            <div class="tool-result" id="filterResult">等待生成。</div>
-          </article>
-
-          <article class="analysis-card backtest-panel">
-            <div class="analysis-card-head">
-              <h3>回测功能</h3>
-              <span>历史验证</span>
-            </div>
-            <form class="tool-form compact" id="backtestForm">
-              <label>
-                <span>策略</span>
-                <select name="strategy">
-                  <option value="hot_omission_balance">热号优先 + 遗漏补偿 + 奇偶均衡</option>
-                  <option value="cold_rebound">冷号反弹 + 排除近号</option>
-                  <option value="hot_focus">热号集中</option>
-                </select>
-              </label>
-              <label>
-                <span>回测期数</span>
-                <input name="window" type="number" min="5" max="300" value="100" />
-              </label>
-              <button class="tool-action" type="submit">开始回测</button>
-              <button class="tool-action secondary" type="button" id="compareBacktestButton">策略对比</button>
-            </form>
-            <div class="tool-result" id="backtestResult">等待回测。</div>
-          </article>
-
-          <article class="analysis-card pool-panel">
-            <div class="analysis-card-head">
-              <h3>我的号码池</h3>
-              <span>本地保存</span>
-            </div>
-            <form class="tool-form compact" id="poolForm">
-              <label>
-                <span>主号</span>
-                <input name="main" placeholder="01 02 03 04 05 06" />
-              </label>
-              <label>
-                <span>特别号</span>
-                <input name="special" placeholder="07" />
-              </label>
-              <button class="tool-action" type="submit">加入号码池</button>
-            </form>
-            <div class="tool-button-row">
-              <button class="mini-action subtle" type="button" id="poolCopyButton">复制号码池</button>
-              <button class="mini-action subtle" type="button" id="poolClearButton">清空号码池</button>
-            </div>
-            <div class="tool-result" id="poolResult">暂无号码。</div>
-          </article>
 
           <article class="analysis-card calendar-panel">
             <div class="analysis-card-head">
@@ -208,10 +99,6 @@
           <section class="three-d-tool-group" aria-labelledby="threeDQueryToolsTitle">
             <h2 id="threeDQueryToolsTitle">号码查询</h2>
             <div class="three-d-tool-grid" id="threeDQueryTools"></div>
-          </section>
-          <section class="three-d-tool-group" aria-labelledby="threeDSelectionToolsTitle">
-            <h2 id="threeDSelectionToolsTitle">选号工具</h2>
-            <div class="three-d-tool-grid" id="threeDSelectionTools"></div>
           </section>
           <section class="three-d-tool-group" aria-labelledby="threeDRecordToolsTitle">
             <h2 id="threeDRecordToolsTitle">开奖记录</h2>
@@ -302,90 +189,6 @@
               <p class="three-d-tool-status" data-tool-status>号码属性只按你输入的三位数字算出，与历史开奖无关，也不代表未来概率。</p>
             </section>
 
-            <section class="three-d-tool-panel" data-three-d-tool-panel="reduction" aria-labelledby="threeDFilterTitle" hidden>
-              <div class="three-d-band-head">
-                <h3 id="threeDManualTitle">手动号码</h3>
-                <span id="threeDTargetLabel">本期目标：--</span>
-              </div>
-              <form class="three-d-inline-form" id="threeDManualForm">
-                <label for="threeDManualNumber">
-                  <span>三位号码</span>
-                  <input id="threeDManualNumber" name="manual_number" inputmode="numeric" autocomplete="off" maxlength="3" pattern="[0-9]{3}" placeholder="123" />
-                </label>
-                <div class="three-d-action-row">
-                  <button class="tool-action" type="submit" id="threeDManualSave">保存手动</button>
-                  <button class="tool-action secondary" type="button" id="threeDRandomSave">随机一组</button>
-                </div>
-              </form>
-              <p class="three-d-tool-status" id="threeDManualStatus" role="status">等待输入。</p>
-
-              <div class="three-d-band-head">
-                <h3 id="threeDFilterTitle">缩水条件</h3>
-                <span id="threeDFilterSummary">等待条件。</span>
-              </div>
-              <form class="three-d-filter-form" id="threeDFilterForm">
-                <fieldset class="three-d-filter-group" id="threeDRangeGroup">
-                  <legend>数值范围</legend>
-                  <div class="three-d-filter-fields">
-                    <label for="threeDSumMin">
-                      <span>和值下限</span>
-                      <input id="threeDSumMin" name="sum_min" type="number" min="0" max="27" value="0" />
-                    </label>
-                    <label for="threeDSumMax">
-                      <span>和值上限</span>
-                      <input id="threeDSumMax" name="sum_max" type="number" min="0" max="27" value="27" />
-                    </label>
-                    <label for="threeDSpanMin">
-                      <span>跨度下限</span>
-                      <input id="threeDSpanMin" name="span_min" type="number" min="0" max="9" value="0" />
-                    </label>
-                    <label for="threeDSpanMax">
-                      <span>跨度上限</span>
-                      <input id="threeDSpanMax" name="span_max" type="number" min="0" max="9" value="9" />
-                    </label>
-                  </div>
-                </fieldset>
-                <fieldset class="three-d-filter-group" id="threeDShapeGroup">
-                  <legend>号码形态</legend>
-                  <div class="three-d-filter-fields three-d-filter-fields-shape">
-                    <fieldset class="three-d-checks" id="threeDTypeGroup">
-                      <legend>组态</legend>
-                      <label><input type="checkbox" name="types" value="豹子" />豹子</label>
-                      <label><input type="checkbox" name="types" value="组三" />组三</label>
-                      <label><input type="checkbox" name="types" value="组六" />组六</label>
-                    </fieldset>
-                    <fieldset class="three-d-checks" id="threeDOddGroup">
-                      <legend>奇数个数</legend>
-                      <label><input type="checkbox" name="odd_counts" value="0" />0</label>
-                      <label><input type="checkbox" name="odd_counts" value="1" />1</label>
-                      <label><input type="checkbox" name="odd_counts" value="2" />2</label>
-                      <label><input type="checkbox" name="odd_counts" value="3" />3</label>
-                    </fieldset>
-                  </div>
-                </fieldset>
-                <fieldset class="three-d-filter-group" id="threeDPositionGroup">
-                  <legend>位置约束</legend>
-                  <div class="three-d-position-filters" aria-label="位置条件">
-                    <label for="threeDPositionInclude0"><span>百位包含</span><input id="threeDPositionInclude0" inputmode="numeric" autocomplete="off" placeholder="6 8" /></label>
-                    <label for="threeDPositionExclude0"><span>百位排除</span><input id="threeDPositionExclude0" inputmode="numeric" autocomplete="off" /></label>
-                    <label for="threeDPositionInclude1"><span>十位包含</span><input id="threeDPositionInclude1" inputmode="numeric" autocomplete="off" /></label>
-                    <label for="threeDPositionExclude1"><span>十位排除</span><input id="threeDPositionExclude1" inputmode="numeric" autocomplete="off" placeholder="0" /></label>
-                    <label for="threeDPositionInclude2"><span>个位包含</span><input id="threeDPositionInclude2" inputmode="numeric" autocomplete="off" /></label>
-                    <label for="threeDPositionExclude2"><span>个位排除</span><input id="threeDPositionExclude2" inputmode="numeric" autocomplete="off" /></label>
-                  </div>
-                </fieldset>
-                <button class="tool-action" type="submit">生成候选</button>
-              </form>
-              <div class="three-d-candidate-toolbar">
-                <span id="threeDSelectedCount">已选 0 组</span>
-                <button class="tool-action secondary" type="button" id="threeDFilterSave" disabled>保存筛选</button>
-              </div>
-              <div class="three-d-result" id="threeDFilterResult" role="status">等待生成。</div>
-              <p class="three-d-tool-status" id="threeDFilterFeedback" data-tool-feedback role="status" hidden aria-hidden="true"></p>
-              <p class="three-d-tool-status" id="threeDFilterStatus" role="status">尚未保存筛选方案。</p>
-              <p class="three-d-tool-status" data-tool-status>缩水只按你设定的条件减少候选范围，不代表未来概率。</p>
-            </section>
-
             <section class="three-d-tool-panel" data-three-d-tool-panel="recent" aria-labelledby="threeDRecentTitle" hidden>
               <div class="three-d-band-head">
                 <h3 id="threeDRecentTitle">最近10期开奖</h3>
@@ -398,11 +201,135 @@
         </section>
         <template id="analysisCompatibilityTokens">daily_fortune_sign ritual_steps avoid_reasons drawSharePoster</template>
       </section>
+      </div>
+
+      <section class="analysis-workbench standalone research-strategy-view" id="researchStrategyView" role="tabpanel" aria-labelledby="researchStrategyTab" aria-label="策略验证" hidden>
+        <div class="analysis-head">
+          <div>
+            <p class="section-kicker">策略研究</p>
+            <h1 class="analysis-title">策略验证</h1>
+          </div>
+          <div class="strategy-actions">
+            <button class="analysis-window-button active" type="button" data-preset="balanced">均衡型</button>
+            <button class="analysis-window-button" type="button" data-preset="conservative">保守型</button>
+            <button class="analysis-window-button" type="button" data-preset="aggressive">激进型</button>
+          </div>
+        </div>
+        <div class="analysis-summary" id="strategySummary">策略数据加载中。</div>
+
+        <div class="strategy-layout" id="strategyLayout">
+          <article class="analysis-card strategy-config-panel">
+            <div class="analysis-card-head">
+              <h3>策略配置</h3>
+              <span id="presetDescription">选择预设或自定义条件</span>
+            </div>
+            <form class="tool-form strategy-form" id="strategyForm">
+              <label>
+                <span>候选组数</span>
+                <input name="candidate_count" type="number" min="1" max="30" value="8" />
+              </label>
+              <label>
+                <span>回测期数</span>
+                <input name="window" type="number" min="5" max="300" value="100" />
+              </label>
+              <label data-strategy-field="exclude_recent">
+                <span>排除近 N 期</span>
+                <input name="exclude_recent" type="number" min="0" max="30" />
+              </label>
+              <label data-strategy-field="min_hot">
+                <span>至少热号</span>
+                <input name="min_hot" type="number" min="0" max="20" />
+              </label>
+              <label data-strategy-field="odd_even">
+                <span>奇偶比</span>
+                <input name="odd_even" placeholder="3:3" />
+              </label>
+              <label data-strategy-field="sum_min">
+                <span>和值下限</span>
+                <input name="sum_min" type="number" />
+              </label>
+              <label data-strategy-field="sum_max">
+                <span>和值上限</span>
+                <input name="sum_max" type="number" />
+              </label>
+              <label data-strategy-field="max_consecutive_run">
+                <span>最大连号长度</span>
+                <input name="max_consecutive_run" type="number" min="1" max="20" />
+              </label>
+              <label data-strategy-field="ac_min">
+                <span>AC 值下限</span>
+                <input name="ac_min" type="number" min="0" />
+              </label>
+              <label data-strategy-field="ac_max">
+                <span>AC 值上限</span>
+                <input name="ac_max" type="number" min="0" />
+              </label>
+              <label data-strategy-field="prime_composite">
+                <span>质合比</span>
+                <input name="prime_composite" placeholder="2:4" />
+              </label>
+              <label data-strategy-field="mod3">
+                <span>012 路比</span>
+                <input name="mod3" placeholder="2:2:2" />
+              </label>
+              <label data-strategy-field="zone">
+                <span>区间比</span>
+                <input name="zone" placeholder="2:2:2" />
+              </label>
+              <label data-strategy-field="tail_exclude">
+                <span>排除尾数</span>
+                <input name="tail_exclude" placeholder="0 5" />
+              </label>
+              <label data-strategy-field="tail_include">
+                <span>包含尾数</span>
+                <input name="tail_include" placeholder="1 8" />
+              </label>
+              <label data-strategy-field="min_omission">
+                <span>最小遗漏</span>
+                <input name="min_omission" type="number" min="0" />
+              </label>
+            </form>
+            <div class="tool-button-row">
+              <button class="tool-action" type="button" id="generateButton">生成候选</button>
+              <button class="tool-action" type="button" id="useStrategyButton">使用此策略选号</button>
+              <button class="tool-action secondary" type="button" id="backtestButton">回测策略</button>
+              <button class="tool-action secondary" type="button" id="compareButton">预设对比</button>
+              <button class="mini-action subtle" type="button" id="saveStrategyButton">保存策略</button>
+            </div>
+            <p class="tool-result strategy-status" id="strategyStatus" role="status">历史统计不代表未来概率。</p>
+          </article>
+
+          <article class="analysis-card strategy-result-panel">
+            <div class="analysis-card-head">
+              <h3>候选结果</h3>
+              <span>策略生成</span>
+            </div>
+            <div class="tool-result" id="candidateResult">等待生成。</div>
+          </article>
+
+          <article class="analysis-card strategy-backtest-panel">
+            <div class="analysis-card-head">
+              <h3>策略回测</h3>
+              <span>历史验证</span>
+            </div>
+            <div class="tool-result" id="backtestResult">等待回测。</div>
+          </article>
+
+          <article class="analysis-card saved-strategy-panel">
+            <div class="analysis-card-head">
+              <h3>我的策略</h3>
+              <span>本地保存</span>
+            </div>
+            <div class="tool-result" id="savedStrategies">暂无保存策略。</div>
+          </article>
+        </div>
+      </section>
     </main>
 
     <script src="./product-client.js?v=20260713-product-client-v2" defer></script>
     <script src="./workbench-3d.js?v=20260714-toolbox-v2" defer></script>
     <script src="./three-d-toolbox.js?v=20260714-toolbox-v2" defer></script>
     <script src="./analysis.js?v=20260714-toolbox-v2" defer></script>
+    <script src="./research-strategy.js?v=20260810-research-v1" defer></script>
   </body>
 </html>

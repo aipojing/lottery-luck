@@ -22,10 +22,17 @@ const DEMO_GAMES = [
   { game_key: "pl5", game_name: "排列5", latest_date: "--", latest_issue: "--" },
 ];
 
+const RESEARCH_VIEWS = ["data", "strategy"];
+
+// The seven 3D observation tools whose deep links stay valid inside the research data view.
+const RETAINED_3D_DATA_TOOLS = ["trend", "omission", "frequency", "heat", "number", "attributes", "recent"];
+
 const state = {
   activeGame: "ssq",
+  activeView: "data",
   analysisWindow: 30,
   games: DEMO_GAMES,
+  capabilities: null,
   demoMode: false,
 };
 
@@ -33,6 +40,9 @@ const els = {
   apiStatus: document.querySelector("#apiStatus"),
   latestDate: document.querySelector("#latestDate"),
   gameTabs: document.querySelector("#gameTabs"),
+  researchViewTabs: document.querySelector("#researchViewTabs"),
+  researchDataView: document.querySelector("#researchDataView"),
+  researchStrategyView: document.querySelector("#researchStrategyView"),
   analysisWorkbench: document.querySelector("#analysisWorkbench"),
   analysisWindowTabs: document.querySelector("#analysisWindowTabs"),
   analysisSummary: document.querySelector("#analysisSummary"),
@@ -40,15 +50,6 @@ const els = {
   numberPanel: document.querySelector("#numberPanel"),
   trendPanel: document.querySelector("#trendPanel"),
   recentPanel: document.querySelector("#recentPanel"),
-  filterForm: document.querySelector("#filterForm"),
-  filterResult: document.querySelector("#filterResult"),
-  backtestForm: document.querySelector("#backtestForm"),
-  compareBacktestButton: document.querySelector("#compareBacktestButton"),
-  backtestResult: document.querySelector("#backtestResult"),
-  poolForm: document.querySelector("#poolForm"),
-  poolCopyButton: document.querySelector("#poolCopyButton"),
-  poolClearButton: document.querySelector("#poolClearButton"),
-  poolResult: document.querySelector("#poolResult"),
   calendarPanel: document.querySelector("#calendarPanel"),
 };
 
@@ -73,19 +74,44 @@ function formatDateTime(isoDate) {
 }
 
 function syncUrl() {
-  const params = new URLSearchParams();
+  // The 3D toolbox owns the address bar while it is the active data surface; its own
+  // writeUrl keeps the retained tool/window params canonical.
+  if (state.activeGame === "3d" && state.activeView === "data") return;
+  const params = new URLSearchParams(window.location.search);
   params.set("game", state.activeGame);
   params.set("window", String(state.analysisWindow));
+  if (state.activeView === "strategy") params.set("view", "strategy");
+  else params.delete("view");
+  const tool = params.get("tool");
+  const keepTool =
+    state.activeGame === "3d" &&
+    state.activeView === "data" &&
+    RETAINED_3D_DATA_TOOLS.includes(tool);
+  if (!keepTool) {
+    params.delete("tool");
+    params.delete("mode");
+    params.delete("source");
+  }
   window.history.replaceState({}, "", `./analysis.html?${params.toString()}`);
+}
+
+function normalizeView(value, announceInvalid = false) {
+  if (value === null || RESEARCH_VIEWS.includes(value)) return value || "data";
+  if (announceInvalid) setStatus("研究视图无效，已回到数据观察。", true);
+  return "data";
 }
 
 function initFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const game = params.get("game");
+  const view = params.get("view");
   const windowSize = Number(params.get("window"));
   if (game && VISIBLE_GAME_KEYS.includes(game)) {
     state.activeGame = game;
+  } else if (game) {
+    setStatus("彩种无效，已回到双色球。", true);
   }
+  state.activeView = normalizeView(view, view !== null);
   if (ANALYSIS_WINDOWS.includes(windowSize)) {
     state.analysisWindow = windowSize;
   }
@@ -94,11 +120,80 @@ function initFromUrl() {
 function routeStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const game = params.get("game");
+  const view = params.get("view");
   const windowSize = Number(params.get("window"));
   return {
     game: VISIBLE_GAME_KEYS.includes(game) ? game : "ssq",
+    view: normalizeView(view),
     window: ANALYSIS_WINDOWS.includes(windowSize) ? windowSize : 30,
   };
+}
+
+const researchSubscribers = new Set();
+
+function notifyResearchSubscribers() {
+  const snapshot = { game: state.activeGame, view: state.activeView, window: state.analysisWindow };
+  researchSubscribers.forEach((callback) => {
+    try {
+      callback(snapshot);
+    } catch (error) {
+      // A subscriber failure must never break the research shell itself.
+    }
+  });
+}
+
+window.LotteryResearch = Object.freeze({
+  getState: () => ({ game: state.activeGame, view: state.activeView, window: state.analysisWindow }),
+  setView: (view) => activateResearchState({ view }),
+  setGame: (game) => activateResearchState({ game }),
+  subscribe(callback) {
+    researchSubscribers.add(callback);
+    return () => researchSubscribers.delete(callback);
+  },
+});
+
+function applyResearchView() {
+  const strategyActive = state.activeView === "strategy";
+  if (els.researchDataView) els.researchDataView.hidden = strategyActive;
+  if (els.researchStrategyView) els.researchStrategyView.hidden = !strategyActive;
+  document.querySelectorAll("#researchViewTabs [data-research-view]").forEach((button) => {
+    const selected = button.dataset.researchView === state.activeView;
+    button.setAttribute("aria-selected", String(selected));
+    button.classList.toggle("active", selected);
+  });
+}
+
+function activateResearchState(changes = {}) {
+  let changed = false;
+  if (changes.game !== undefined) {
+    const game = String(changes.game);
+    if (VISIBLE_GAME_KEYS.includes(game) && game !== state.activeGame) {
+      state.activeGame = game;
+      changed = true;
+    }
+  }
+  if (changes.view !== undefined) {
+    const view = normalizeView(changes.view);
+    if (view !== state.activeView) {
+      state.activeView = view;
+      changed = true;
+    }
+  }
+  if (changes.window !== undefined && ANALYSIS_WINDOWS.includes(changes.window)) {
+    if (changes.window !== state.analysisWindow) {
+      state.analysisWindow = changes.window;
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  syncUrl();
+  applyResearchView();
+  notifyResearchSubscribers();
+  if (state.activeView === "data") {
+    loadActiveGame({ reset3d: changes.game === "3d" });
+  } else if (changes.game !== undefined && window.ThreeDWorkbench?.deactivate) {
+    window.ThreeDWorkbench.deactivate();
+  }
 }
 
 function renderTabs() {
@@ -131,41 +226,6 @@ function isThreeDWorkbenchGame() {
   return state.activeGame === "3d";
 }
 
-function syncFilterDefaults() {
-  [
-    "exclude_recent",
-    "min_hot",
-    "odd_even",
-    "sum_min",
-    "sum_max",
-    "max_consecutive_run",
-    "ac_min",
-    "ac_max",
-    "prime_composite",
-    "mod3",
-    "zone",
-    "tail_exclude",
-    "tail_include",
-    "min_omission",
-  ].forEach((name) => {
-    const input = els.filterForm.querySelector(`[name="${name}"]`);
-    if (input) input.value = "";
-  });
-  const presets = {
-    ssq: { exclude_recent: 2, min_hot: 1, odd_even: "3:3", sum_min: 80, sum_max: 130, max_consecutive_run: 2 },
-    dlt: { exclude_recent: 2, min_hot: 1, odd_even: "3:2", sum_min: 45, sum_max: 120, max_consecutive_run: 2 },
-    "3d": { exclude_recent: 1, min_hot: 1, odd_even: "2:1", sum_min: 8, sum_max: 20, max_consecutive_run: 3 },
-    pl3: { exclude_recent: 1, min_hot: 1, odd_even: "2:1", sum_min: 8, sum_max: 20, max_consecutive_run: 3 },
-    qlc: { exclude_recent: 2, min_hot: 1, odd_even: "4:3", sum_min: 90, sum_max: 150, max_consecutive_run: 2 },
-    kl8: { exclude_recent: 1, min_hot: 2, odd_even: "5:5", sum_min: 300, sum_max: 520, max_consecutive_run: 3 },
-  };
-  const preset = presets[state.activeGame] || presets.ssq;
-  Object.entries(preset).forEach(([name, value]) => {
-    const input = els.filterForm.querySelector(`[name="${name}"]`);
-    if (input) input.value = value;
-  });
-}
-
 function renderAnalysisWindowTabs() {
   els.analysisWindowTabs.replaceChildren();
   ANALYSIS_WINDOWS.forEach((windowSize) => {
@@ -182,32 +242,6 @@ function renderAnalysisWindowTabs() {
 function renderAnalysisStatus(message, isError = false) {
   els.analysisSummary.classList.toggle("error", isError);
   els.analysisSummary.textContent = message;
-}
-
-function storageKey() {
-  return `lotteryLuck:numberPool:${state.activeGame}`;
-}
-
-function readPool() {
-  try {
-    const value = JSON.parse(localStorage.getItem(storageKey()) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch (error) {
-    return [];
-  }
-}
-
-function writePool(numbers) {
-  localStorage.setItem(storageKey(), JSON.stringify(numbers.slice(0, 30)));
-}
-
-function parseNumberInput(value) {
-  return String(value ?? "")
-    .split(/[,\s/，、]+/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => Number(part))
-    .filter((number) => Number.isInteger(number));
 }
 
 function analysisNumberLabel(value) {
@@ -540,145 +574,6 @@ async function fetchJson(url, options) {
   return response.json();
 }
 
-function formJson(form) {
-  const data = new FormData(form);
-  const result = {};
-  for (const [key, value] of data.entries()) {
-    const text = String(value).trim();
-    result[key] = text === "" ? null : Number.isNaN(Number(text)) ? text : Number(text);
-  }
-  return result;
-}
-
-function filterFormJson() {
-  const payload = formJson(els.filterForm);
-  ["odd_even", "prime_composite", "mod3", "zone"].forEach((key) => {
-    if (payload[key] === null) payload[key] = "";
-  });
-  payload.tail_exclude = parseNumberInput(payload.tail_exclude);
-  payload.tail_include = parseNumberInput(payload.tail_include);
-  return payload;
-}
-
-function renderCandidateList(container, payload) {
-  const rows = payload.candidates || [];
-  if (!rows.length) {
-    container.textContent = "没有符合条件的候选号。";
-    return;
-  }
-  container.replaceChildren();
-  const list = document.createElement("ol");
-  list.className = "candidate-list";
-  rows.slice(0, 8).forEach((candidate) => {
-    const item = document.createElement("li");
-    const nums = document.createElement("b");
-    const special = candidate.special || [];
-    nums.textContent = `${candidate.main.map(padNumber).join(" ")}${special.length ? ` + ${special.map(padNumber).join(" ")}` : ""}`;
-    const meta = document.createElement("span");
-    const details = [
-      ...(candidate.tags || []),
-      `012 ${candidate.mod3 || "--"}`,
-      `尾 ${candidate.tail_pattern || "--"}`,
-      `连号${candidate.max_consecutive_run}`,
-    ];
-    if (Array.isArray(candidate.omission_hits) && candidate.omission_hits.length) {
-      details.push(`遗漏 ${candidate.omission_hits.map((row) => `${padNumber(row.number)}:${row.missing}`).join(" ")}`);
-    }
-    meta.textContent = details.join(" / ");
-    item.append(nums, meta);
-    list.append(item);
-  });
-  container.append(list);
-}
-
-function renderBacktest(container, payload) {
-  container.replaceChildren();
-  const summary = document.createElement("div");
-  summary.className = "result-summary";
-  summary.innerHTML = `<b>${payload.tested_draws}</b><span>期回测</span><b>${payload.average_main_hits}</b><span>平均命中主号</span><b>${payload.max_main_hits}</b><span>最高命中</span>`;
-  const list = document.createElement("ol");
-  list.className = "candidate-list";
-  (payload.rows || []).slice(0, 6).forEach((row) => {
-    const item = document.createElement("li");
-    const nums = document.createElement("b");
-    nums.textContent = `${row.issue} 命中 ${row.main_hits}`;
-    const meta = document.createElement("span");
-    meta.textContent = row.candidate.main.map(padNumber).join(" ");
-    item.append(nums, meta);
-    list.append(item);
-  });
-  container.append(summary, list);
-}
-
-function renderBacktestCompare(container, payload) {
-  container.replaceChildren();
-  const rows = payload.strategies || [];
-  if (!rows.length) {
-    container.textContent = "暂无可对比策略。";
-    return;
-  }
-  const best = rows[0];
-  const summary = document.createElement("div");
-  summary.className = "result-summary";
-  summary.innerHTML = `<b>${rows.length}</b><span>个策略</span><b>${best.average_main_hits}</b><span>最佳均值</span><b>${best.max_main_hits}</b><span>最佳峰值</span>`;
-
-  const list = document.createElement("ol");
-  list.className = "candidate-list strategy-list";
-  rows.forEach((row, index) => {
-    const item = document.createElement("li");
-    const title = document.createElement("b");
-    title.textContent = `${index + 1}. ${strategyLabel(row.strategy)}`;
-    const meta = document.createElement("span");
-    meta.textContent = `${row.tested_draws}期 / 平均命中 ${row.average_main_hits} / 最高 ${row.max_main_hits}`;
-    item.append(title, meta);
-    list.append(item);
-  });
-  container.append(summary, list);
-}
-
-function strategyLabel(strategy) {
-  return {
-    hot_omission_balance: "热号优先 + 遗漏补偿 + 奇偶均衡",
-    cold_rebound: "冷号反弹 + 排除近号",
-    hot_focus: "热号集中",
-  }[strategy] || strategy;
-}
-
-function renderPool(container, payload) {
-  container.replaceChildren();
-  const summary = document.createElement("div");
-  summary.className = "result-summary";
-  summary.innerHTML = `<b>${payload.summary.pool_size}</b><span>组号码</span><b>${payload.summary.duplicate_groups}</b><span>重复组</span><b>${payload.summary.extreme_sum_count}</b><span>和值偏极端</span>`;
-  const list = document.createElement("ol");
-  list.className = "candidate-list";
-  (payload.entries || []).forEach((entry) => {
-    const item = document.createElement("li");
-    const nums = document.createElement("b");
-    nums.textContent = `${entry.main.map(padNumber).join(" ")}${entry.special.length ? ` + ${entry.special.map(padNumber).join(" ")}` : ""}`;
-    const meta = document.createElement("span");
-    meta.textContent = [
-      `风险${entry.risk_score}`,
-      `热${entry.hot_hits}`,
-      `冷${entry.cold_hits}`,
-      `和值${entry.sum}${entry.sum_level}`,
-      `AC${entry.ac_value}`,
-      `质合${entry.prime_composite}`,
-      `012 ${entry.mod3}`,
-      `区间${entry.zone}`,
-      `尾${entry.tail_pattern}`,
-      entry.fortune_commentary
-        ? `${entry.fortune_commentary.wealth_type} · ${entry.fortune_commentary.compatibility}`
-        : "",
-      entry.warnings.length ? entry.warnings.join("、") : "",
-    ]
-      .filter(Boolean)
-      .join(" / ");
-    item.append(nums, meta);
-    list.append(item);
-  });
-  container.append(summary, list);
-}
-
 function renderCalendar(payload) {
   els.calendarPanel.replaceChildren();
   const list = document.createElement("ol");
@@ -719,26 +614,12 @@ async function loadCalendar() {
   }
 }
 
-async function analyzePool() {
-  const numbers = readPool();
-  if (!numbers.length) {
-    els.poolResult.textContent = "暂无号码。";
-    return;
-  }
-  const payload = await fetchJson(`/api/number-pool/${state.activeGame}/analyze`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ numbers }),
-  });
-  renderPool(els.poolResult, payload);
-}
-
 async function loadGames() {
   try {
     const data = await fetchJson("/api/games");
     state.games = Array.isArray(data.games) && data.games.length ? data.games : DEMO_GAMES;
     state.demoMode = false;
-    setStatus("数据分析");
+    setStatus("研究中心");
   } catch (error) {
     state.games = DEMO_GAMES;
     state.demoMode = true;
@@ -764,7 +645,6 @@ async function loadAnalysis() {
 async function loadActiveGame(options = {}) {
   renderTabs();
   renderGameMeta();
-  syncFilterDefaults();
   if (isThreeDWorkbenchGame()) {
     if (window.ThreeDWorkbench?.activate) {
       await window.ThreeDWorkbench.activate({
@@ -782,15 +662,19 @@ async function loadActiveGame(options = {}) {
     els.analysisWorkbench.setAttribute("aria-hidden", "false");
   }
   await loadAnalysis();
-  await analyzePool();
   await loadCalendar();
 }
 
 els.gameTabs.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-game]");
   if (!button) return;
-  state.activeGame = button.dataset.game;
-  loadActiveGame({ reset3d: state.activeGame === "3d" });
+  activateResearchState({ game: button.dataset.game });
+});
+
+els.researchViewTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-research-view]");
+  if (!button) return;
+  activateResearchState({ view: button.dataset.researchView });
 });
 
 window.addEventListener("popstate", () => {
@@ -798,7 +682,11 @@ window.addEventListener("popstate", () => {
   const gameChanged = route.game !== state.activeGame;
   const windowChanged = route.window !== state.analysisWindow;
   state.activeGame = route.game;
+  state.activeView = route.view;
   state.analysisWindow = route.window;
+  applyResearchView();
+  notifyResearchSubscribers();
+  if (state.activeView === "strategy") return;
 
   if (gameChanged) {
     loadActiveGame({ restore3d: route.game === "3d" });
@@ -818,101 +706,26 @@ els.analysisWindowTabs.addEventListener("click", (event) => {
   loadAnalysis();
 });
 
-els.filterForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  els.filterResult.textContent = "筛选中。";
-  try {
-    const payload = await fetchJson(`/api/filter/${state.activeGame}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(filterFormJson()),
-    });
-    renderCandidateList(els.filterResult, payload);
-  } catch (error) {
-    els.filterResult.textContent = "筛选暂不可用。";
-  }
-});
+// Old 3D selection deep links (reduction/filter) now belong to the number tools. Replace
+// the navigation before any data request or toolbox routing runs, so nothing observes the
+// legacy route. Legal observation tool params keep flowing through the data view.
+function redirectLegacySelectionRoute() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("game") !== "3d") return false;
+  const tool = params.get("tool");
+  if (tool !== "reduction" && tool !== "filter") return false;
+  window.location.replace("./tools.html?game=3d&tool=conditional&source=legacy");
+  return true;
+}
 
-els.backtestForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  els.backtestResult.textContent = "回测中。";
-  try {
-    const payload = await fetchJson(`/api/backtest/${state.activeGame}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formJson(els.backtestForm)),
-    });
-    renderBacktest(els.backtestResult, payload);
-  } catch (error) {
-    els.backtestResult.textContent = "回测暂不可用。";
-  }
-});
-
-els.compareBacktestButton.addEventListener("click", async () => {
-  els.backtestResult.textContent = "策略对比中。";
-  try {
-    const base = formJson(els.backtestForm);
-    const payload = await fetchJson(`/api/backtest/${state.activeGame}/compare`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        window: base.window || 100,
-        strategies: ["hot_omission_balance", "cold_rebound", "hot_focus"],
-      }),
-    });
-    renderBacktestCompare(els.backtestResult, payload);
-  } catch (error) {
-    els.backtestResult.textContent = "策略对比暂不可用。";
-  }
-});
-
-els.poolForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const data = new FormData(els.poolForm);
-  const entry = {
-    main: parseNumberInput(data.get("main")),
-    special: parseNumberInput(data.get("special")),
-  };
-  if (!entry.main.length) {
-    els.poolResult.textContent = "请先填写主号。";
-    return;
-  }
-  const numbers = readPool();
-  numbers.unshift(entry);
-  writePool(numbers);
-  els.poolForm.reset();
-  await analyzePool();
-});
-
-els.poolCopyButton.addEventListener("click", async () => {
-  const numbers = readPool();
-  if (!numbers.length) {
-    els.poolResult.textContent = "暂无号码可复制。";
-    return;
-  }
-  const text = numbers
-    .map((entry) => {
-      const main = (entry.main || []).map(padNumber).join(" ");
-      const special = (entry.special || []).length ? ` + ${(entry.special || []).map(padNumber).join(" ")}` : "";
-      return `${main}${special}`;
-    })
-    .join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    els.poolResult.textContent = "号码池已复制。";
-  } catch (error) {
-    els.poolResult.textContent = text;
-  }
-});
-
-els.poolClearButton.addEventListener("click", async () => {
-  localStorage.removeItem(storageKey());
-  await analyzePool();
-});
-
-initFromUrl();
-renderAnalysisWindowTabs();
-syncFilterDefaults();
-loadGames().then(async () => {
-  await loadActiveGame();
-});
+if (!redirectLegacySelectionRoute()) {
+  initFromUrl();
+  renderAnalysisWindowTabs();
+  applyResearchView();
+  loadGames().then(async () => {
+    if (state.activeView === "data") {
+      await loadActiveGame();
+    }
+    notifyResearchSubscribers();
+  });
+}

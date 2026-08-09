@@ -836,8 +836,8 @@ def test_strategy_redirect_home_remains_prediction_and_3d_workbench_has_no_birth
     assert browser_page.locator('input[name="birth_date"]').is_visible()
     assert browser_page.locator('input[name="birth_place"]').is_visible()
     browser_page.locator('button[data-game="3d"]').click()
-    assert browser_page.locator("#analysisEntry").get_attribute("href") == "./analysis.html?game=3d"
-    assert browser_page.locator("#strategyEntry").get_attribute("href") == "./analysis.html?game=3d&mode=pro&window=30"
+    assert browser_page.locator("#analysisEntry").get_attribute("href") == "./analysis.html?game=3d&view=data"
+    assert browser_page.locator("#strategyEntry").count() == 0
 
     browser_page.goto(f"{live_server_url}/analysis.html?game=3d")
     browser_page.wait_for_function("() => document.querySelector('#threeDToolbox')?.hidden === false")
@@ -8289,11 +8289,11 @@ def test_number_tools_page_exposes_all_cards_and_top_level_navigation(live_serve
     assert page.locator("[data-tool-card]").count() == 7
     assert page.locator("[data-game-key]").count() == 5
     assert page.locator('[data-tool-card="quick"]').get_attribute("aria-current") == "true"
-    assert page.locator('a[href="./tools.html"]', has_text="选号工具").count() == 1
+    assert page.locator('a[href="./tools.html?game=ssq&tool=quick"]', has_text="选号工具").count() == 1
 
     for path in ["/", "/analysis.html?game=ssq", "/strategy.html?game=ssq"]:
         page.goto(f"{live_server_url}{path}")
-        assert page.locator('a[href="./tools.html"]', has_text="选号工具").count() == 1
+        assert page.locator('a[href="./tools.html?game=ssq&tool=quick"]', has_text="选号工具").count() == 1
 
 
 def test_quick_pick_adds_normalized_unique_entries_to_persistent_basket(
@@ -8745,3 +8745,12 @@ def test_expired_or_cross_game_handoff_is_rejected_with_visible_message(live_ser
     """)
     browser_page.goto(f"{live_server_url}/tools.html?game=ssq&tool=conditional&source=strategy")
     assert "策略条件未能带入" in browser_page.locator("#toolStatus").inner_text()
+
+
+def test_public_navigation_has_research_and_tools_without_strategy_entry(live_server_url, browser_page):
+    for path in ["/", "/analysis.html?game=ssq&view=data", "/tools.html?game=ssq", "/privacy.html", "/result.html"]:
+        browser_page.goto(f"{live_server_url}{path}")
+        nav = browser_page.locator(".header-nav")
+        assert nav.get_by_role("link", name="研究中心").count() == 1
+        assert nav.get_by_role("link", name="选号工具").count() == 1
+        assert nav.get_by_role("link", name="策略实验室").count() == 0

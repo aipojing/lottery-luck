@@ -2,16 +2,44 @@
   "use strict";
 
   const GAME_KEYS = ["ssq", "dlt", "3d", "pl3", "kl8"];
-  const TOOL_KEYS = ["quick", "lock", "full", "dantuo", "reduce", "organize"];
+  const TOOL_KEYS = ["quick", "lock", "full", "dantuo", "conditional", "reduce", "organize"];
   const BASKET_KEY = "lottery_tool_basket_v1";
+  const HANDOFF_KEY = "lottery_research_handoff_v1";
+  const HANDOFF_MAX_AGE_MS = 30 * 60 * 1000;
+  const POOL_MIGRATION_KEY = "lottery_tool_pool_migration_v1";
+  const STRATEGY_NUMBER_FIELDS = [
+    "exclude_recent", "min_hot", "sum_min", "sum_max", "max_consecutive_run",
+    "ac_min", "ac_max", "min_omission",
+  ];
+  const STRATEGY_TEXT_FIELDS = ["odd_even", "prime_composite", "mod3", "zone", "tail_exclude", "tail_include"];
+  const STRATEGY_FIELD_LABELS = {
+    exclude_recent: "排除近 N 期",
+    min_hot: "至少热号",
+    odd_even: "奇偶比",
+    sum_min: "和值下限",
+    sum_max: "和值上限",
+    max_consecutive_run: "最大连号长度",
+    ac_min: "AC 值下限",
+    ac_max: "AC 值上限",
+    prime_composite: "质合比",
+    mod3: "012 路比",
+    zone: "区间比",
+    tail_exclude: "排除尾数",
+    tail_include: "包含尾数",
+    min_omission: "最小遗漏",
+  };
   const EMPTY_BASKET = () => ({
     version: 1,
     games: { ssq: [], dlt: [], "3d": [], pl3: [], kl8: [] },
   });
   let config = null;
+  let surfaces = null;
   let memoryBasket = null;
   let requestToken = 0;
   let lastComputed = null;
+  let activeHandoff = null;
+  let handoffRejected = false;
+  let publicGameKeys = [...GAME_KEYS];
 
   function numberList(values) {
     return Array.isArray(values)
@@ -126,6 +154,93 @@
     return writeBasket(basket);
   }
 
+  function presetLabel(preset) {
+    return { balanced: "均衡型", conservative: "保守型", aggressive: "激进型" }[preset] || preset;
+  }
+
+  function isDigitGame(gameKey) {
+    return gameKey === "3d" || gameKey === "pl3";
+  }
+
+  function peekResearchHandoff(gameKey) {
+    const raw = sessionStorage.getItem(HANDOFF_KEY);
+    if (!raw) return { value: null, error: "策略条件未能带入，请重新选择。" };
+    try {
+      const value = JSON.parse(raw);
+      const age = Date.now() - value.created_at;
+      const fresh = Number.isFinite(value.created_at) && age >= 0 && age <= HANDOFF_MAX_AGE_MS;
+      if (value.version !== 1 || value.game_key !== gameKey || value.source !== "strategy" || !fresh) {
+        return { value: null, error: "策略条件未能带入，请重新选择。" };
+      }
+      return { value, error: "" };
+    } catch (_) {
+      return { value: null, error: "策略条件未能带入，请重新选择。" };
+    }
+  }
+
+  function maybeConsumeHandoff() {
+    const params = new URLSearchParams(window.location.search);
+    const state = urlState();
+    if (state.tool !== "conditional") return;
+    const hadHandoff = sessionStorage.getItem(HANDOFF_KEY) !== null || params.get("source") === "strategy";
+    const peeked = peekResearchHandoff(state.game);
+    if (peeked.value) {
+      // A valid handoff must still be readable once the navigation that carried it settles,
+      // so it is consumed only after the load event. Invalid or stale handoffs are removed
+      // at once and reported before the page finishes loading.
+      window.addEventListener(
+        "load",
+        () => {
+          setTimeout(() => {
+            sessionStorage.removeItem(HANDOFF_KEY);
+            activeHandoff = peeked.value;
+            const current = urlState();
+            if (current.tool === "conditional" && config) activate(current.game, current.tool);
+          }, 200);
+        },
+        { once: true },
+      );
+    } else if (hadHandoff) {
+      sessionStorage.removeItem(HANDOFF_KEY);
+      handoffRejected = true;
+      setStatus(peeked.error, true);
+    }
+  }
+
+  function migrateLegacyPools() {
+    if (localStorage.getItem(POOL_MIGRATION_KEY) === "1") return;
+    const next = sanitizeBasket(readBasket());
+    for (const gameKey of publicGameKeys) {
+      let rows;
+      try {
+        rows = JSON.parse(localStorage.getItem(`lotteryLuck:numberPool:${gameKey}`) || "[]");
+      } catch (_) {
+        setStatus(`${gameKey} 的旧号码池无法读取，原数据已保留。`, true);
+        continue;
+      }
+      if (!Array.isArray(rows)) continue;
+      const seen = new Set(next.games[gameKey].map(entryIdentity));
+      rows.forEach((row) => {
+        const entry = normalizeEntry(
+          { ...row, game_key: gameKey, source: "legacy_pool", play_type: typeof row?.play_type === "string" ? row.play_type : "straight" },
+          gameKey,
+        );
+        if (!entry || seen.has(entryIdentity(entry)) || next.games[gameKey].length >= 500) return;
+        seen.add(entryIdentity(entry));
+        next.games[gameKey].push(entry);
+      });
+    }
+    try {
+      localStorage.setItem(BASKET_KEY, JSON.stringify(next));
+      localStorage.setItem(POOL_MIGRATION_KEY, "1");
+      memoryBasket = null;
+      renderBasket(next);
+    } catch (_) {
+      memoryBasket = next;
+      showBasketWarning("旧号码池暂时无法写入浏览器存储，原数据已保留。");
+    }
+  }
+
   function csvCell(value) {
     const text = String(value ?? "");
     return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -157,8 +272,12 @@
     const params = new URLSearchParams(window.location.search);
     const game = GAME_KEYS.includes(params.get("game")) ? params.get("game") : "ssq";
     const tool = TOOL_KEYS.includes(params.get("tool")) ? params.get("tool") : "quick";
-    if (params.get("game") !== game || params.get("tool") !== tool) {
-      history.replaceState(null, "", `./tools.html?game=${game}&tool=${tool}`);
+    const next = new URLSearchParams();
+    next.set("game", game);
+    next.set("tool", tool);
+    if (tool === "conditional" && params.get("source")) next.set("source", params.get("source"));
+    if (params.toString() !== next.toString()) {
+      history.replaceState(null, "", `./tools.html?${next.toString()}`);
     }
     return { game, tool };
   }
@@ -199,11 +318,64 @@
     return `<fieldset><legend>前区号码</legend>${rangeButtons("main", game.main.min, game.main.max, mainExtra)}</fieldset>${game.special ? `<fieldset><legend>后区号码</legend>${rangeButtons("special", game.special.min, game.special.max, specialExtra)}</fieldset>` : ""}`;
   }
 
+  function digitConditionalMarkup(game) {
+    const checkGroup = (name, legend, values) => `<fieldset class="conditional-checks"><legend>${legend}</legend>${values
+      .map((value) => `<label><input type="checkbox" name="${name}" value="${value}" checked> ${value}</label>`)
+      .join("")}</fieldset>`;
+    const positionInputs = (prefix, legend) => `<fieldset><legend>${legend}</legend><div class="conditional-grid">${["百位", "十位", "个位"]
+      .map((label, index) => `<label>${label}<input name="${prefix}_${index}" inputmode="numeric" autocomplete="off" placeholder="如 1 8"></label>`)
+      .join("")}</div></fieldset>`;
+    return `<div class="conditional-fields" id="conditionalDigitFields">
+      <div class="conditional-grid">
+        <label>生成注数 <input name="count" type="number" min="1" max="200" value="8"></label>
+        <label>和值下限 <input name="sum_min" type="number" min="0" max="27" value="0"></label>
+        <label>和值上限 <input name="sum_max" type="number" min="0" max="27" value="27"></label>
+        <label>跨度下限 <input name="span_min" type="number" min="0" max="9" value="0"></label>
+        <label>跨度上限 <input name="span_max" type="number" min="0" max="9" value="9"></label>
+      </div>
+      ${checkGroup("types", "组态", ["豹子", "组三", "组六"])}
+      ${checkGroup("odd_counts", "奇数个数", [0, 1, 2, 3])}
+      ${checkGroup("big_counts", "大数个数", [0, 1, 2, 3])}
+      ${positionInputs("position_include", "位置包含")}
+      ${positionInputs("position_exclude", "位置排除")}
+    </div>${optionsMarkup(game)}`;
+  }
+
+  function strategyConditionalMarkup(game, handoff) {
+    const escapeAttribute = (value) => String(value).replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;");
+    const fields = surfaces?.games?.[game.key]?.research?.strategy?.condition_fields
+      || [...STRATEGY_NUMBER_FIELDS, ...STRATEGY_TEXT_FIELDS];
+    const conditions = handoff?.conditions && typeof handoff.conditions === "object" ? handoff.conditions : {};
+    const fieldMarkup = fields.map((name) => {
+      const label = STRATEGY_FIELD_LABELS[name] || name;
+      const value = conditions[name];
+      const filled = value === 0 ? "0" : (value ?? "");
+      const type = STRATEGY_NUMBER_FIELDS.includes(name) ? " type=\"number\"" : "";
+      return `<label>${label}<input name="${name}"${type} value="${escapeAttribute(filled)}"></label>`;
+    }).join("");
+    const presets = ["balanced", "conservative", "aggressive"];
+    const selectedPreset = presets.includes(handoff?.preset) ? handoff.preset : "balanced";
+    const windowValue = Number.isFinite(Number(handoff?.window)) && Number(handoff.window) > 0 ? Number(handoff.window) : 120;
+    return `<div class="conditional-fields" id="conditionalStrategyFields">
+      <div class="conditional-grid">
+        <label>策略预设 <select name="preset">${presets.map((preset) => `<option value="${preset}" ${preset === selectedPreset ? "selected" : ""}>${presetLabel(preset)}</option>`).join("")}</select></label>
+        <label>生成组数 <input name="count" type="number" min="1" max="30" value="8"></label>
+        <label>统计窗口 <input name="window" type="number" min="1" max="300" value="${windowValue}"></label>
+      </div>
+      <div class="conditional-grid">${fieldMarkup}</div>
+    </div>${optionsMarkup(game)}`;
+  }
+
   function formMarkup(gameKey, tool) {
     const game = config.games[gameKey];
     const action = tool === "lock" ? "quick-pick" : tool === "quick" ? "quick-pick" : tool === "full" || tool === "dantuo" ? "compose" : tool;
     let body = "";
-    if (tool === "quick") {
+    if (tool === "conditional") {
+      const handoff = activeHandoff && activeHandoff.game_key === gameKey ? activeHandoff : null;
+      body = isDigitGame(gameKey) && handoff?.source !== "strategy"
+        ? digitConditionalMarkup(game)
+        : strategyConditionalMarkup(game, handoff);
+    } else if (tool === "quick") {
       body = "<label>生成注数 <input name=\"count\" type=\"number\" min=\"1\" max=\"20\" value=\"5\"></label>" + optionsMarkup(game);
     } else if (tool === "lock") {
       body = `<p class="tool-help">点击号码依次切换：关注、排除、未选择。</p>${selectionMarkup(game, "lock")}${optionsMarkup(game)}`;
@@ -231,14 +403,41 @@
     return entries.map((entry, index) => `<label class="basket-check"><input type="checkbox" name="basket_entry" value="${index}" checked> ${entry.text || entry.main.join(" ")}</label>`).join("");
   }
 
+  function applySurfaceLabels(game) {
+    const gameSurface = surfaces?.games?.[game];
+    if (!gameSurface) return;
+    const visibleTools = Array.isArray(gameSurface.tools) && gameSurface.tools.length ? gameSurface.tools : TOOL_KEYS;
+    document.querySelectorAll("[data-tool-card]").forEach((button) => {
+      button.hidden = !visibleTools.includes(button.dataset.toolCard);
+    });
+    Object.entries(gameSurface.tool_labels || {}).forEach(([toolKey, label]) => {
+      const title = document.querySelector(`[data-tool-card="${toolKey}"] strong`);
+      if (title && label) title.textContent = label;
+    });
+  }
+
+  function renderConditionalSource(tool) {
+    const source = document.querySelector("#conditionalSource");
+    if (!source) return;
+    if (tool === "conditional" && activeHandoff) {
+      source.textContent = `来源：${activeHandoff.name || presetLabel(activeHandoff.preset)} · 条件已预填，确认后再生成。`;
+      source.hidden = false;
+    } else {
+      source.textContent = "";
+      source.hidden = true;
+    }
+  }
+
   function activate(game, tool) {
     requestToken += 1;
     resetResult();
     document.querySelectorAll("[data-game-key]").forEach((button) => button.setAttribute("aria-current", String(button.dataset.gameKey === game)));
     document.querySelectorAll("[data-tool-card]").forEach((button) => button.setAttribute("aria-current", String(button.dataset.toolCard === tool)));
     updateDantuoLabel(game);
+    applySurfaceLabels(game);
     const card = document.querySelector(`[data-tool-card="${tool}"] strong`);
     document.querySelector("#workbenchTitle").textContent = card?.textContent || "选号工具";
+    renderConditionalSource(tool);
     const form = document.querySelector("#toolForm");
     form.hidden = false;
     form.innerHTML = config?.games?.[game] ? formMarkup(game, tool) : "<p class=\"tool-empty\">工具配置不可用，暂不能提交。</p>";
@@ -337,6 +536,10 @@
   function previewTicketCount(form, game, tool) {
     if (!form || !game) return null;
     if (tool === "quick") return Number(form.elements.count?.value || 0);
+    if (tool === "conditional") {
+      const count = Number(form.elements.count?.value || 0);
+      return Number.isInteger(count) && count > 0 ? count : null;
+    }
     if (tool === "lock") return 1;
     if (tool === "reduce") {
       const budget = Number(form.elements.budget?.value || 0);
@@ -435,6 +638,58 @@
       };
     }
     return { batch_a: form.elements.batch_a.value, batch_b: form.elements.batch_b.value, operation: form.elements.operation.value, options };
+  }
+
+  function inputDigits(value) {
+    return [...new Set(String(value || "").match(/\d/g) || [])].map(Number);
+  }
+
+  function conditionalConditions(form, gameKey, source) {
+    if (source === "digit_filter") {
+      const positions = (prefix) => Object.fromEntries(
+        [0, 1, 2]
+          .map((index) => [String(index), inputDigits(form.elements[`${prefix}_${index}`]?.value)])
+          .filter(([, digits]) => digits.length),
+      );
+      return {
+        sum_min: Number(form.elements.sum_min.value),
+        sum_max: Number(form.elements.sum_max.value),
+        span_min: Number(form.elements.span_min.value),
+        span_max: Number(form.elements.span_max.value),
+        types: [...form.querySelectorAll('[name="types"]:checked')].map((input) => input.value),
+        odd_counts: [...form.querySelectorAll('[name="odd_counts"]:checked')].map((input) => Number(input.value)),
+        big_counts: [...form.querySelectorAll('[name="big_counts"]:checked')].map((input) => Number(input.value)),
+        position_include: positions("position_include"),
+        position_exclude: positions("position_exclude"),
+      };
+    }
+    const conditions = {};
+    STRATEGY_NUMBER_FIELDS.forEach((name) => {
+      if (form.elements[name] && form.elements[name].value !== "") conditions[name] = Number(form.elements[name].value);
+    });
+    STRATEGY_TEXT_FIELDS.forEach((name) => {
+      if (form.elements[name] && form.elements[name].value.trim()) conditions[name] = form.elements[name].value.trim();
+    });
+    return conditions;
+  }
+
+  function endpointAndBody(form, gameKey, tool) {
+    if (tool === "conditional") {
+      const handoff = activeHandoff && activeHandoff.game_key === gameKey ? activeHandoff : null;
+      const source = handoff?.source === "strategy" ? "strategy" : (isDigitGame(gameKey) ? "digit_filter" : "strategy");
+      return {
+        endpoint: `/api/tools/${gameKey}/conditional`,
+        body: {
+          source,
+          preset: form.elements.preset?.value || "balanced",
+          count: Number(form.elements.count?.value || 8),
+          window: Number(form.elements.window?.value || 120),
+          conditions: conditionalConditions(form, gameKey, source),
+          options: formOptions(form),
+        },
+      };
+    }
+    return { endpoint: `/api/tools/${gameKey}/${form.dataset.action}`, body: serializeForm(form, gameKey, tool) };
   }
 
   function setStatus(message, error = false) {
@@ -543,10 +798,11 @@
     submit.disabled = true;
     setStatus("正在处理本次号码请求。");
     try {
-      const response = await fetch(`/api/tools/${game}/${form.dataset.action}`, {
+      const { endpoint, body } = endpointAndBody(form, game, tool);
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serializeForm(form, game, tool)),
+        body: JSON.stringify(body),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.detail?.message || "请求未能完成，请检查条件后重试。");
@@ -592,23 +848,39 @@
     }
   }
 
+  async function loadSurfaces() {
+    try {
+      const response = await fetch("/api/surfaces/config");
+      if (!response.ok) return null;
+      const payload = await response.json();
+      return payload && typeof payload === "object" && payload.games ? payload : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function initialize() {
     const { game, tool } = urlState();
     const loading = document.querySelector("#toolLoading");
     const error = document.querySelector("#toolError");
     try {
-      const response = await fetch("/api/tools/config");
+      const [response, surfacePayload] = await Promise.all([fetch("/api/tools/config"), loadSurfaces()]);
       if (!response.ok) throw new Error("config unavailable");
       config = await response.json();
+      surfaces = surfacePayload;
+      if (surfaces?.games) publicGameKeys = Object.keys(surfaces.games);
       renderGames();
+      maybeConsumeHandoff();
       activate(game, tool);
-      setStatus("工具配置已就绪。");
+      if (!handoffRejected) setStatus("工具配置已就绪。");
     } catch (_) {
       error.hidden = false;
-      setStatus("工具配置加载失败。", true);
+      maybeConsumeHandoff();
+      if (!handoffRejected) setStatus("工具配置加载失败。", true);
       activate(game, tool);
     } finally {
       loading.hidden = true;
+      migrateLegacyPools();
       renderBasket();
     }
   }
@@ -686,6 +958,7 @@
       event.preventDefault();
       submitTool(form);
     });
+    maybeConsumeHandoff();
     initialize();
   });
 })();

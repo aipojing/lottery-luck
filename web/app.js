@@ -364,7 +364,6 @@ const els = {
   savedPlanLink: document.querySelector("#savedPlanLink"),
   planSaveStatus: document.querySelector("#planSaveStatus"),
   analysisEntry: document.querySelector("#analysisEntry"),
-  strategyEntry: document.querySelector("#strategyEntry"),
   analysisWindowTabs: document.querySelector("#analysisWindowTabs"),
   analysisSummary: document.querySelector("#analysisSummary"),
   analysisHotCold: document.querySelector("#analysisHotCold"),
@@ -1263,19 +1262,11 @@ function renderGameMeta() {
   els.latestIssue.textContent = `最新期号 ${meta.latest_issue || "--"}`;
   els.latestDate.textContent = formatDateTime(meta.latest_date);
   renderAnalysisEntry();
-  renderStrategyEntry();
 }
 
 function renderAnalysisEntry() {
   if (!els.analysisEntry) return;
-  els.analysisEntry.href = `./analysis.html?game=${encodeURIComponent(state.activeGame)}`;
-}
-
-function renderStrategyEntry() {
-  if (!els.strategyEntry) return;
-  els.strategyEntry.href = state.activeGame === "3d"
-    ? "./analysis.html?game=3d&mode=pro&window=30"
-    : `./strategy.html?game=${encodeURIComponent(state.activeGame)}`;
+  els.analysisEntry.href = `./analysis.html?game=${encodeURIComponent(state.activeGame)}&view=data`;
 }
 
 function hasAnalysisWorkbench() {

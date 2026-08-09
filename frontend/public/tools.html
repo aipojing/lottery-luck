@@ -25,9 +25,8 @@
           </div>
           <nav class="header-nav" aria-label="页面目录">
             <a class="page-link" href="./">预测首页</a>
-            <a class="page-link" href="./analysis.html?game=ssq">数据分析</a>
-            <a class="page-link" href="./strategy.html?game=ssq">策略实验室</a>
-            <a class="page-link active" href="./tools.html" aria-current="page">选号工具</a>
+            <a class="page-link" href="./analysis.html?game=ssq&view=data">研究中心</a>
+            <a class="page-link active" href="./tools.html?game=ssq&tool=quick" aria-current="page">选号工具</a>
           </nav>
         </div>
       </header>
@@ -59,6 +58,9 @@
         <button class="tool-card" type="button" data-tool-card="dantuo">
           <strong>胆拖组号</strong><span>以胆码和拖码组织方案。</span>
         </button>
+        <button class="tool-card" type="button" data-tool-card="conditional">
+          <strong>条件选号</strong><span>按研究规则或数字形态筛选候选。</span>
+        </button>
         <button class="tool-card" type="button" data-tool-card="reduce">
           <strong>预算缩水</strong><span>按预算筛减候选号码。</span>
         </button>
@@ -72,6 +74,7 @@
           <div class="tool-section-head">
             <p class="section-kicker">当前工具</p>
             <h2 id="workbenchTitle">快速选号</h2>
+            <p class="tool-source" id="conditionalSource" role="status" hidden></p>
           </div>
           <div class="tool-loading" id="toolLoading" role="status">正在加载工具配置。</div>
           <div class="tool-error" id="toolError" role="alert" hidden>工具配置暂时不可用，请稍后重试。</div>
