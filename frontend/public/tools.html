@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>选号工具 · 数运合参</title>
+    <link rel="stylesheet" href="./styles.css?v=20260618-retention-v1-1" />
+    <link rel="stylesheet" href="./tools.css" />
+  </head>
+  <body class="tools-page">
+    <main class="page-shell">
+      <header class="site-header" aria-label="页面信息">
+        <a class="brand" href="./" aria-label="数运合参首页">
+          <span class="brand-line">
+            <span class="brand-title">数运合参</span>
+            <span class="brand-seal" aria-hidden="true">测</span>
+          </span>
+          <span class="brand-subtitle">
+            <span aria-hidden="true"></span>玄 金 工 具 盘<span aria-hidden="true"></span>
+          </span>
+        </a>
+        <div class="header-tools">
+          <div class="top-meta" aria-label="工具状态">
+            <span id="toolStatus" role="status">工具配置加载中。</span>
+          </div>
+          <nav class="header-nav" aria-label="页面目录">
+            <a class="page-link" href="./">预测首页</a>
+            <a class="page-link" href="./analysis.html?game=ssq">数据分析</a>
+            <a class="page-link" href="./strategy.html?game=ssq">策略实验室</a>
+            <a class="page-link active" href="./tools.html" aria-current="page">选号工具</a>
+          </nav>
+        </div>
+      </header>
+
+      <section class="tool-hall-intro" aria-labelledby="toolsTitle">
+        <p class="section-kicker">选号工作台</p>
+        <h1 id="toolsTitle">选号工具大厅</h1>
+        <p>快速起号、成本测算和号码整理集中处理。</p>
+      </section>
+
+      <nav class="tool-game-tabs" id="toolGameTabs" aria-label="彩种切换">
+        <button type="button" data-game-key="ssq">双色球</button>
+        <button type="button" data-game-key="dlt">大乐透</button>
+        <button type="button" data-game-key="3d">福彩3D</button>
+        <button type="button" data-game-key="pl3">排列3</button>
+        <button type="button" data-game-key="kl8">快乐8</button>
+      </nav>
+
+      <section class="tool-card-grid" aria-label="选号工具">
+        <button class="tool-card" type="button" data-tool-card="quick">
+          <strong>快速选号</strong><span>按当前彩种快速生成号码。</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-card="lock">
+          <strong>锁号与排除</strong><span>设置必须包含和不得包含的号码。</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-card="full">
+          <strong>复式组号</strong><span>查看复式号码的注数与金额。</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-card="dantuo">
+          <strong>胆拖组号</strong><span>以胆码和拖码组织方案。</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-card="reduce">
+          <strong>预算缩水</strong><span>按预算筛减候选号码。</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-card="organize">
+          <strong>号码整理</strong><span>去重、合并或比较多组号码。</span>
+        </button>
+      </section>
+
+      <div class="tool-layout">
+        <section class="tool-workbench" id="toolWorkbench" aria-labelledby="workbenchTitle" tabindex="-1">
+          <div class="tool-section-head">
+            <p class="section-kicker">当前工具</p>
+            <h2 id="workbenchTitle">快速选号</h2>
+          </div>
+          <div class="tool-loading" id="toolLoading" role="status">正在加载工具配置。</div>
+          <div class="tool-error" id="toolError" role="alert" hidden>工具配置暂时不可用，请稍后重试。</div>
+          <div class="tool-empty" id="toolForm" hidden>请选择上方工具开始组织号码。</div>
+          <p class="live-cost" id="liveCostSummary" role="status">实时预估：请选择号码。</p>
+        </section>
+
+        <aside class="tool-side" aria-label="结果与号码篮">
+          <section class="tool-result" id="toolResult" aria-live="polite" aria-labelledby="resultTitle">
+            <div class="tool-section-head">
+              <p class="section-kicker">结果预览</p>
+              <h2 id="resultTitle">等待生成</h2>
+            </div>
+            <div class="tool-empty" id="resultEmpty">生成的号码与计算结果会显示在这里。</div>
+            <footer id="costSummary" role="status">预计金额：--</footer>
+          </section>
+
+          <section class="tool-basket" id="toolBasket" aria-labelledby="basketTitle">
+            <div class="tool-section-head">
+              <div>
+                <p class="section-kicker">号码篮</p>
+                <h2 id="basketTitle">待保存号码 <span id="basketCount">0</span></h2>
+              </div>
+              <div class="basket-actions">
+                <button id="copyBasket" type="button">复制全部</button>
+                <button id="downloadBasket" type="button">导出 CSV</button>
+                <button id="clearBasket" type="button">清空当前彩种</button>
+              </div>
+            </div>
+            <p class="tool-warning" id="basketWarning" role="status" hidden></p>
+            <div class="tool-empty" data-basket-empty>号码篮为空。</div>
+            <ol class="basket-list" id="basketEntries"></ol>
+          </section>
+        </aside>
+      </div>
+      <div class="mobile-basket-bar" aria-label="号码篮快捷状态">
+        <span>号码篮 <strong data-basket-count>0</strong> 组</span><strong id="mobileBasketCost">0 元</strong>
+      </div>
+      <p class="tool-disclaimer">仅供娱乐和号码组织参考，不构成投注建议。</p>
+    </main>
+    <script src="./tools.js"></script>
+  </body>
+</html>

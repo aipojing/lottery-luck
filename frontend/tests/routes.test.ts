@@ -13,6 +13,7 @@ describe("legacy compatibility routes", () => {
         { source: "/", destination: "/index.html" },
         { source: "/analysis", destination: "/analysis.html" },
         { source: "/strategy", destination: "/strategy.html" },
+        { source: "/tools", destination: "/tools.html" },
         { source: "/admin", destination: "/admin.html" },
       ]),
     );
