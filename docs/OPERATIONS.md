@@ -81,7 +81,7 @@ LOTTERY_LUCK_AI_ENABLED=true
 说明：
 
 - `LOTTERY_LUCK_AI_ENABLED=false` 会强制使用 `NullAiProvider`，用于紧急关闭第三方 AI。
-- DeepSeek API Key 由用户在首页自行配置，保存在浏览器 Local Storage，并仅随 `/api/predict` 请求发送；API 不落库、不记录该密钥。
+- DeepSeek API Key 由用户在首页自行配置，验证通过后保存在浏览器 Local Storage，并仅随 `/api/ai/validate` 与 `/api/predict` 请求发送；API 不落库、不记录该密钥。
 - 用户没有配置 API Key 时使用 `NullAiProvider`。
 - 启用 AI 时，第三方只接收 `game_key`、`fortune_mode`、`best_draw_date` 和 `personal_features` 派生特征。不会发送原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。
 - AI 返回 payload 只允许 `element_bias`、`digit_bias`、`lucky_themes`、`explanation`、`confidence`，包含具体号码、承诺词或未知字段时降级为中性特征。
@@ -89,7 +89,7 @@ LOTTERY_LUCK_AI_ENABLED=true
 
 ### Turso
 
-生产数据库由 API 项目通过 Turso/libSQL 访问。本地开发保持 `TURSO_DATABASE_URL=` 和 `TURSO_AUTH_TOKEN=` 为空，继续使用 `cwl_history/cwl_history.sqlite`；生产 API 项目必须同时配置二者。
+生产数据库由 API 项目通过 Turso/libSQL 访问。本地开发保持 `TURSO_DATABASE_URL=` 和 `TURSO_AUTH_TOKEN=` 为空，服务会从 `cwl_history/cwl_history.sqlite` 复制并使用 `.runtime/cwl_history.sqlite`；生产 API 项目必须同时配置 Turso 的两个变量。
 
 导入前先生成 source snapshot：
 
@@ -295,7 +295,7 @@ http://127.0.0.1:8017/admin.html
 
 ## SQLite 发布备份与回滚
 
-运行时数据库路径来自代码常量 `lottery_luck.config.DB_PATH`，当前默认是 `cwl_history/cwl_history.sqlite`。不要暂存或提交运行时数据库变动，除非明确更新种子数据。
+`cwl_history/cwl_history.sqlite` 是仓库内只读种子库。本地服务首次连接时会把它复制到 `.runtime/cwl_history.sqlite`，后续爬取、埋点和方案写入只修改运行库；可用 `LOTTERY_LUCK_LOCAL_DB_PATH` 覆盖运行库路径。不要暂存或提交种子库变动，除非明确更新种子数据。
 
 发布 schema 变更前：
 
@@ -307,8 +307,8 @@ http://127.0.0.1:8017/admin.html
 
 ```bash
 DB_PATH="$(PYTHONPATH=. .venv/bin/python - <<'PY'
-from lottery_luck.config import DB_PATH
-print(DB_PATH)
+from lottery_luck.config import LOCAL_RUNTIME_DB_PATH
+print(LOCAL_RUNTIME_DB_PATH)
 PY
 )"
 mkdir -p backups
@@ -328,8 +328,8 @@ PYTHONPATH=. .venv/bin/pytest tests/test_plans.py tests/test_product_events.py t
 
 ```bash
 DB_PATH="$(PYTHONPATH=. .venv/bin/python - <<'PY'
-from lottery_luck.config import DB_PATH
-print(DB_PATH)
+from lottery_luck.config import LOCAL_RUNTIME_DB_PATH
+print(LOCAL_RUNTIME_DB_PATH)
 PY
 )"
 sqlite3 "$BACKUP" "PRAGMA integrity_check;"

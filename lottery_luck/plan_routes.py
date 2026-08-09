@@ -5,7 +5,7 @@ import sqlite3
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
 from .repository import (
@@ -15,6 +15,7 @@ from .repository import (
     PlanRequestConflictError,
     PlanTargetAlreadyDrawnError,
 )
+from .write_limits import WriteRateLimitExceeded, enforce_request_write_limits
 
 
 Digit = Annotated[StrictInt, Field(ge=0, le=9)]
@@ -238,6 +239,7 @@ def _handle_sqlite_error(exc: sqlite3.Error) -> None:
 @router.post("/plans", status_code=201)
 def create_plan(
     request: PlanCreateRequest,
+    http_request: Request,
     repo: Annotated[LotteryRepository, Depends(get_repository)],
     x_lottery_client_id: Annotated[
         str | None,
@@ -246,7 +248,19 @@ def create_plan(
 ) -> dict[str, Any]:
     client_id = _client_id(x_lottery_client_id)
     try:
+        enforce_request_write_limits(
+            repo,
+            http_request,
+            client_id=client_id,
+            category="plans",
+        )
         plan = repo.create_plan_lifecycle(client_id, request.to_domain_payload())
+    except WriteRateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="write rate limit exceeded",
+            headers={"Retry-After": str(exc.retry_after)},
+        ) from exc
     except (
         PlanDrawUnavailableError,
         PlanNotFoundError,

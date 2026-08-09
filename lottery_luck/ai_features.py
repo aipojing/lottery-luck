@@ -45,6 +45,22 @@ _PREDICTION_WORDS = (
 _NORMALIZATION_TOLERANCE = 1e-6
 
 
+class AiProviderError(RuntimeError):
+    """Base error for user-visible AI provider failures."""
+
+
+class AiAuthenticationError(AiProviderError):
+    """The provider rejected the supplied credential."""
+
+
+class AiServiceUnavailableError(AiProviderError):
+    """The provider could not complete the request."""
+
+
+class AiProviderResponseError(AiProviderError):
+    """The provider returned a response that cannot be used safely."""
+
+
 @dataclass(frozen=True)
 class AiFeature:
     enabled: bool
@@ -155,6 +171,7 @@ class DeepSeekFlashProvider:
         timeout: float = 10.0,
         client: httpx.Client | None = None,
         transport: httpx.BaseTransport | None = None,
+        strict_errors: bool = False,
     ) -> None:
         self.api_key = api_key if api_key is not None else os.getenv("DEEPSEEK_API_KEY")
         self.model = model or os.getenv("DEEPSEEK_MODEL") or "deepseek-v4-flash"
@@ -163,6 +180,7 @@ class DeepSeekFlashProvider:
         self._client = client
         self._transport = transport
         self._owns_client = client is None
+        self.strict_errors = strict_errors
 
     def extract(self, context: Mapping[str, Any] | None = None) -> AiFeature:
         if not self.api_key:
@@ -200,11 +218,25 @@ class DeepSeekFlashProvider:
             content = data["choices"][0]["message"]["content"]
             feature = validate_ai_payload(json.loads(content))
             if not feature.enabled:
+                if self.strict_errors:
+                    raise AiProviderResponseError("DeepSeek returned an invalid response")
                 return neutral_ai_feature("DeepSeek 返回格式未通过校验，使用中性特征。")
             return feature
-        except httpx.HTTPError:
+        except httpx.HTTPStatusError as exc:
+            if self.strict_errors:
+                if exc.response.status_code in {401, 403}:
+                    raise AiAuthenticationError("DeepSeek rejected the API key") from exc
+                raise AiServiceUnavailableError("DeepSeek request failed") from exc
             return neutral_ai_feature("DeepSeek 请求失败，使用中性特征。")
-        except Exception:
+        except httpx.HTTPError as exc:
+            if self.strict_errors:
+                raise AiServiceUnavailableError("DeepSeek request failed") from exc
+            return neutral_ai_feature("DeepSeek 请求失败，使用中性特征。")
+        except AiProviderError:
+            raise
+        except Exception as exc:
+            if self.strict_errors:
+                raise AiProviderResponseError("DeepSeek response could not be parsed") from exc
             return neutral_ai_feature("DeepSeek 响应解析失败，使用中性特征。")
 
     def close(self) -> None:

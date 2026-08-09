@@ -619,6 +619,9 @@ def _complete_3d_prediction(page, live_server_url, payload=None, *, gated_motion
 
 
 def _fill_required_form(page):
+    page.evaluate(
+        "() => localStorage.setItem('lotteryLuck.deepseekApiKey.v1', 'sk-test-key')"
+    )
     page.locator('input[name="name"]').fill("测试用户")
     page.locator('input[name="birth_date"]').fill("1990-01-01")
     page.locator('input[name="birth_place"]').fill("杭州")
@@ -627,6 +630,68 @@ def _fill_required_form(page):
     page.locator(
         '[data-select-name="birth_hour"] .custom-select-option[data-value="辰"]'
     ).click()
+
+
+def test_ai_settings_rejects_invalid_key_without_persisting_it(
+    live_server_url, browser_page
+):
+    browser_page.route(
+        f"{live_server_url}/api/ai/validate",
+        lambda route: route.fulfill(
+            status=401,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "detail": {
+                        "code": "AI_KEY_INVALID",
+                        "message": "DeepSeek API Key 无效或已失效，请重新配置。",
+                    }
+                },
+                ensure_ascii=False,
+            ),
+        ),
+    )
+    browser_page.goto(live_server_url)
+    browser_page.locator("#aiSettingsButton").click()
+    browser_page.locator("#deepseekApiKey").fill("sk-invalid-key")
+    browser_page.locator('#aiSettingsForm button[type="submit"]').click()
+
+    browser_page.wait_for_function(
+        "() => document.querySelector('#aiSettingsHint').classList.contains('error')",
+        timeout=5000,
+    )
+
+    assert browser_page.locator("#aiSettingsDialog").get_attribute("open") is not None
+    assert "无效或已失效" in browser_page.locator("#aiSettingsHint").inner_text()
+    assert browser_page.evaluate(
+        "() => localStorage.getItem('lotteryLuck.deepseekApiKey.v1')"
+    ) is None
+
+
+def test_ai_settings_persists_key_only_after_successful_validation(
+    live_server_url, browser_page
+):
+    browser_page.route(
+        f"{live_server_url}/api/ai/validate",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"valid":true}',
+        ),
+    )
+    browser_page.goto(live_server_url)
+    browser_page.locator("#aiSettingsButton").click()
+    browser_page.locator("#deepseekApiKey").fill("  sk-valid-key  ")
+    browser_page.locator('#aiSettingsForm button[type="submit"]').click()
+
+    browser_page.wait_for_function(
+        "() => document.querySelector('#aiSettingsLabel').textContent === 'AI 已配置'",
+        timeout=5000,
+    )
+
+    assert browser_page.evaluate(
+        "() => localStorage.getItem('lotteryLuck.deepseekApiKey.v1')"
+    ) == "sk-valid-key"
 
 
 def test_public_frontend_contains_no_membership_or_package_controls():
@@ -6788,6 +6853,10 @@ def test_result_detail_renders_master_ritual_record(
     )
 
     browser_page.goto(f"{live_server_url}/result.html?id=master-ritual")
+    browser_page.wait_for_function(
+        "() => document.querySelector('#resultMasterRitual').textContent.includes('测试起盘断语')",
+        timeout=5000,
+    )
     master_text = browser_page.locator("#resultMasterRitual").inner_text()
 
     assert "测试起盘断语" in master_text

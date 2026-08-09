@@ -443,8 +443,22 @@ function setAiSettingsHint(message, isError = false) {
   els.aiSettingsHint.classList.toggle("error", isError);
 }
 
+let aiSettingsBusy = false;
+
+function setAiSettingsBusy(isBusy) {
+  aiSettingsBusy = isBusy;
+  const submitButton = els.aiSettingsForm?.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = isBusy;
+    submitButton.textContent = isBusy ? "正在验证" : "保存设置";
+  }
+  if (els.clearAiSettingsButton) els.clearAiSettingsButton.disabled = isBusy;
+  if (els.closeAiSettingsButton) els.closeAiSettingsButton.disabled = isBusy;
+  if (els.deepseekApiKey) els.deepseekApiKey.disabled = isBusy;
+}
+
 function closeAiSettings() {
-  if (!els.aiSettingsDialog) return;
+  if (!els.aiSettingsDialog || aiSettingsBusy) return;
   if (typeof els.aiSettingsDialog.close === "function") {
     els.aiSettingsDialog.close();
   } else {
@@ -452,19 +466,20 @@ function closeAiSettings() {
   }
 }
 
-function openAiSettings({ required = false } = {}) {
+function openAiSettings({ required = false, message = "", value } = {}) {
   if (!els.aiSettingsDialog || !els.deepseekApiKey) return;
-  els.deepseekApiKey.value = window.LotteryAiKey?.read() || "";
+  els.deepseekApiKey.value = value ?? window.LotteryAiKey?.read() ?? "";
   els.deepseekApiKey.type = "password";
   if (els.showDeepseekApiKey) els.showDeepseekApiKey.checked = false;
   setAiSettingsHint(
-    required
+    message || (required
       ? "请先配置 DeepSeek API Key，再开始起盘。密钥只保存在当前浏览器。"
-      : "密钥仅保存在当前浏览器，起盘时使用。",
+      : "密钥仅保存在当前浏览器，起盘时使用。"),
+    Boolean(message),
   );
-  if (typeof els.aiSettingsDialog.showModal === "function") {
+  if (!els.aiSettingsDialog.open && typeof els.aiSettingsDialog.showModal === "function") {
     els.aiSettingsDialog.showModal();
-  } else {
+  } else if (!els.aiSettingsDialog.open) {
     els.aiSettingsDialog.setAttribute("open", "");
   }
   els.deepseekApiKey.focus();
@@ -488,16 +503,25 @@ function setupAiSettings() {
   els.aiSettingsDialog?.addEventListener("click", (event) => {
     if (event.target === els.aiSettingsDialog) closeAiSettings();
   });
-  els.aiSettingsForm?.addEventListener("submit", (event) => {
+  els.aiSettingsForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      window.LotteryAiKey.save(els.deepseekApiKey?.value || "");
+      const apiKey = window.LotteryAiKey.prepare(els.deepseekApiKey?.value || "");
+      setAiSettingsBusy(true);
+      setAiSettingsHint("正在验证 DeepSeek 连接，请稍候。");
+      await fetchJson("/api/ai/validate", {
+        method: "POST",
+        headers: { "X-DeepSeek-Api-Key": apiKey },
+      });
+      window.LotteryAiKey.save(apiKey);
       updateAiSettingsState();
-      setAiSettingsHint("已保存到当前浏览器。");
+      setAiSettingsHint("连接成功，密钥已保存到当前浏览器。");
       setGenerateFeedback("DeepSeek API Key 已配置，可以开始起盘。");
       window.setTimeout(closeAiSettings, 320);
     } catch (error) {
-      setAiSettingsHint(error?.message || "保存失败，请重试。", true);
+      setAiSettingsHint(error?.message || "验证失败，请检查密钥后重试。", true);
+    } finally {
+      setAiSettingsBusy(false);
     }
   });
   els.clearAiSettingsButton?.addEventListener("click", () => {
@@ -1886,11 +1910,28 @@ async function fetchJson(url, options = {}) {
     ...(options.headers || {}),
   };
   const response = await fetch(url, { ...options, headers });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || `HTTP ${response.status}`);
+  const responseText = await response.text();
+  let payload = null;
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch (error) {
+      payload = null;
+    }
   }
-  return response.json();
+  if (!response.ok) {
+    const detail = payload?.detail;
+    const message = typeof detail === "string"
+      ? detail
+      : detail?.message || `请求失败（${response.status}）`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.code = typeof detail === "object" ? detail?.code || "" : "";
+    throw error;
+  }
+  if (payload !== null) return payload;
+  if (!responseText) return {};
+  throw new Error("服务返回了无法识别的数据");
 }
 
 async function loadGames() {
@@ -2389,7 +2430,21 @@ async function predict({ userInitiated = false } = {}) {
       els.predictionResults.classList.remove("is-generating");
       els.predictionResults.hidden = !requestContext.hadVisibleResults;
     }
-    setGenerateFeedback("起盘失败，请稍后重试。已保留当前资料和上次结果。", true);
+    if (error?.code === "AI_KEY_INVALID") {
+      const rejectedKey = window.LotteryAiKey?.read() || "";
+      window.LotteryAiKey?.clear();
+      updateAiSettingsState();
+      setGenerateFeedback("DeepSeek API Key 已失效，请重新配置后再起盘。", true);
+      openAiSettings({
+        required: true,
+        message: "这个 DeepSeek API Key 无效或已失效，请检查后重新保存。",
+        value: rejectedKey,
+      });
+    } else if (["AI_SERVICE_UNAVAILABLE", "AI_RESPONSE_INVALID"].includes(error?.code)) {
+      setGenerateFeedback(`${error.message} 已保留当前资料和上次结果。`, true);
+    } else {
+      setGenerateFeedback("起盘失败，请稍后重试。已保留当前资料和上次结果。", true);
+    }
   } finally {
     if (state.predictionAbortController === abortController) {
       state.predictionAbortController = null;

@@ -91,7 +91,7 @@ LOTTERY_LUCK_SETTINGS_PATH=/absolute/path/settings.json
 SPORTS_LOTTERY_API_BASE_URL=https://webapi.sporttery.cn
 ```
 
-DeepSeek API Key 由用户在首页“AI 设置”中填写，只保存在当前浏览器的 Local Storage，并在预测请求中临时发送给 API。API 不保存用户密钥。`LOTTERY_LUCK_AI_ENABLED=false` 可作为服务端总开关强制关闭第三方 AI；用户未配置密钥时自动降级为中性特征。
+DeepSeek API Key 由用户在首页“AI 设置”中填写，连接验证通过后只保存在当前浏览器的 Local Storage，并在验证和预测请求中临时发送给 API。API 不保存用户密钥。`LOTTERY_LUCK_AI_ENABLED=false` 可作为服务端总开关强制关闭第三方 AI；用户未配置密钥时自动降级为中性特征。
 
 `LOTTERY_LUCK_ADMIN_TOKEN` 是生产必填项，用于 `X-Lottery-Admin-Token` 后台鉴权。未配置或请求未带匹配 token 时，`/api/admin/*` 全部返回 401，后台页面只保留锁定壳，不会预填 token。生产 token 请用密码管理器或部署平台 secret 配置，不要写进 shell history、URL、日志或仓库文件。生成、验证和轮换步骤见 [docs/OPERATIONS.md](docs/OPERATIONS.md)。
 
@@ -133,7 +133,7 @@ TURSO_DATABASE_URL='libsql://...' TURSO_AUTH_TOKEN='...' \
 
 第三方 AI 不直接接收原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。浏览器本地历史可能保存精简摘要，可在首页清空。首页财运历史只写入当前浏览器的 Local Storage，不会上传为云端财运记录；清理站点数据也会移除这些本机记录。福彩3D工具箱的结构化方案使用独立方案接口，方案详情页提供删除能力。
 
-`product_events` 只接受事件名和属性白名单。允许事件名为 `prediction_completed`、`plan_saved`、`workbench_opened`、`plan_edited`、`review_viewed`、`plan_carried_forward`、`tool_opened`、`tool_result_generated`；允许属性为 `game_key`、`source_type`、`mode`、`window`、`entry_count`、`candidate_count`、`freshness_status`、`review_status`、`tool_key`、`result_count`。`tool_key` 只接受 8 个工具的固定枚举，`result_count` 只接受整数条数。事件不会采集姓名、生日、出生地、当前城市、原始号码（含查询号码）、方案标题、自由文本或 `plan_id`。代码当前未定义事件保留期，生产查询和导出需按部署方隐私策略另行控制。
+`product_events` 只接受事件名和属性白名单。允许事件名为 `prediction_completed`、`plan_saved`、`workbench_opened`、`plan_edited`、`review_viewed`、`plan_carried_forward`、`tool_opened`、`tool_result_generated`；允许属性为 `game_key`、`source_type`、`mode`、`window`、`entry_count`、`candidate_count`、`freshness_status`、`review_status`、`tool_key`、`result_count`。`tool_key` 只接受 8 个工具的固定枚举，`result_count` 只接受整数条数。事件不会采集姓名、生日、出生地、当前城市、原始号码（含查询号码）、方案标题、自由文本或 `plan_id`。事件保留 90 天且总量最多 10 万条；事件和方案写入均按客户端与网络来源双重限流，网络来源只保存不可逆摘要。
 
 ## 常用命令
 
@@ -227,7 +227,9 @@ web/
   result.html/js     历史财运号详情
   admin.html/js      数据后台
 cwl_history/
-  cwl_history.sqlite 本地开奖库与运行时表
+  cwl_history.sqlite 本地只读种子库
+.runtime/
+  cwl_history.sqlite 本地运行库（Git 忽略）
 tests/
   test_*.py          API、算法、爬虫、前端行为测试
 docs/

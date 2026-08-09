@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Iterator
 
-from .config import DB_PATH, TURSO_AUTH_TOKEN_ENV, TURSO_DATABASE_URL_ENV
+from .config import (
+    DB_PATH,
+    LOCAL_RUNTIME_DB_PATH,
+    TURSO_AUTH_TOKEN_ENV,
+    TURSO_DATABASE_URL_ENV,
+)
+
+
+_LOCAL_RUNTIME_LOCK = threading.Lock()
 
 
 def _load_libsql():
@@ -177,9 +187,9 @@ class RemoteConnection:
 
 def connect_database(db_path: Path | str | None = None) -> Any:
     if db_path is not None or not remote_database_enabled():
-        target = Path(db_path) if db_path is not None else DB_PATH
-        if db_path is None and not target.exists():
-            raise FileNotFoundError(target)
+        target = Path(db_path) if db_path is not None else LOCAL_RUNTIME_DB_PATH
+        if db_path is None:
+            _ensure_local_runtime_database(target)
         connection = sqlite3.connect(target, timeout=10.0)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 10000")
@@ -195,3 +205,20 @@ def connect_database(db_path: Path | str | None = None) -> Any:
     connection = RemoteConnection(_load_libsql().connect(database=url, auth_token=token))
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
+
+
+def _ensure_local_runtime_database(target: Path) -> None:
+    if target.exists():
+        return
+    with _LOCAL_RUNTIME_LOCK:
+        if target.exists():
+            return
+        if not DB_PATH.exists():
+            raise FileNotFoundError(DB_PATH)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+        try:
+            shutil.copy2(DB_PATH, temporary)
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)

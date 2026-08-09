@@ -8,7 +8,7 @@ from .data_health import (
     recent_crawl_logs as read_recent_crawl_logs,
     recent_crawl_logs_by_game as read_recent_crawl_logs_by_game,
 )
-from .product_events import ensure_product_events_table, record_event
+from .product_events import ensure_product_events_table, prune_product_events, record_event
 from .quota import (
     cloud_records,
     consume_prediction_quota,
@@ -19,6 +19,11 @@ from .quota import (
 )
 from .rules import GAME_RULES
 from .tasks import create_task, list_tasks, mark_task_finished, mark_task_started
+from .write_limits import (
+    consume_write_limit,
+    ensure_write_limits_table,
+    prune_write_limits,
+)
 
 
 DRAW_COLUMNS = "game_key, game_name, issue, draw_date, week, red_numbers, blue_number, sales, pool_money, content"
@@ -265,6 +270,35 @@ class LotteryRepository:
     def initialize_plan_schema(self) -> None:
         with self._connect() as connection:
             plan_store.initialize_plan_schema(connection)
+
+    def initialize_write_limits_schema(self) -> None:
+        with self._connect() as connection:
+            ensure_write_limits_table(connection)
+
+    def consume_write_limit(
+        self,
+        *,
+        scope: str,
+        bucket_key: str,
+        limit: int,
+        window_seconds: int,
+    ) -> bool:
+        with self._connect() as connection:
+            return consume_write_limit(
+                connection,
+                scope=scope,
+                bucket_key=bucket_key,
+                limit=limit,
+                window_seconds=window_seconds,
+            )
+
+    def prune_product_events(self) -> int:
+        with self._connect() as connection:
+            return prune_product_events(connection)
+
+    def prune_write_limits(self) -> int:
+        with self._connect() as connection:
+            return prune_write_limits(connection)
 
     def create_plan(self, client_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         with self._connect() as connection:

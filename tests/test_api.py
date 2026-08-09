@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lottery_luck import scheduler
+from lottery_luck.ai_features import AiAuthenticationError, AiFeature
 from lottery_luck.api import app, get_repository
 from lottery_luck.repository import LotteryRepository
 
@@ -663,6 +664,7 @@ def test_admin_settings_endpoint_returns_metaphysics_config():
 
 def test_lifespan_initializes_product_event_and_plan_schema_before_serving(monkeypatch):
     calls = []
+    monkeypatch.setattr("lottery_luck.api.remote_database_enabled", lambda: True)
 
     class Repo:
         def initialize_product_events_schema(self):
@@ -670,6 +672,15 @@ def test_lifespan_initializes_product_event_and_plan_schema_before_serving(monke
 
         def initialize_plan_schema(self):
             calls.append("plans")
+
+        def initialize_write_limits_schema(self):
+            calls.append("limits")
+
+        def prune_product_events(self):
+            calls.append("prune-events")
+
+        def prune_write_limits(self):
+            calls.append("prune-limits")
 
     monkeypatch.setattr("lottery_luck.api.LotteryRepository", lambda: Repo())
     monkeypatch.setattr(
@@ -683,7 +694,14 @@ def test_lifespan_initializes_product_event_and_plan_schema_before_serving(monke
 
     asyncio.run(run_lifespan())
 
-    assert calls == ["events", "plans", "serving"]
+    assert calls == [
+        "events",
+        "plans",
+        "limits",
+        "prune-events",
+        "prune-limits",
+        "serving",
+    ]
 
 
 def test_quota_status_endpoint_returns_configured_remaining(tmp_path, monkeypatch):
@@ -985,6 +1003,29 @@ def test_product_event_endpoint_requires_client_id(tmp_path):
 
     assert response.status_code == 400
     assert response.json() == {"detail": "X-Lottery-Client-Id is required"}
+
+
+def test_product_event_endpoint_returns_429_before_writing_when_rate_limited():
+    class LimitedRepo:
+        def consume_write_limit(self, **kwargs):
+            return False
+
+        def record_product_event(self, **kwargs):
+            raise AssertionError("rate-limited event must not be written")
+
+    app.dependency_overrides[get_repository] = lambda: LimitedRepo()
+    try:
+        response = client.post(
+            "/api/events",
+            headers={"X-Lottery-Client-Id": "client-api"},
+            json={"event_name": "workbench_opened", "properties": {}},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "write rate limit exceeded"}
+    assert response.headers["Retry-After"]
 
 
 @pytest.mark.parametrize(
@@ -2030,8 +2071,9 @@ def test_predict_accepts_calendar_type_and_sends_minimized_features_to_ai_provid
     contexts = []
 
     class FakeDeepSeekProvider:
-        def __init__(self, *, api_key):
+        def __init__(self, *, api_key, strict_errors):
             assert api_key == "user-secret"
+            assert strict_errors is True
 
         def extract(self, context):
             contexts.append(context)
@@ -2199,8 +2241,8 @@ def test_user_deepseek_key_header_constructs_provider_and_closes_it(
     events = []
 
     class FakeDeepSeekProvider:
-        def __init__(self, *, api_key):
-            events.append(("constructed", api_key))
+        def __init__(self, *, api_key, strict_errors):
+            events.append(("constructed", api_key, strict_errors))
 
         def extract(self, context):
             return {
@@ -2223,7 +2265,110 @@ def test_user_deepseek_key_header_constructs_provider_and_closes_it(
     )
 
     assert response.status_code == 200
-    assert events == [("constructed", "user-secret"), "closed"]
+    assert events == [("constructed", "user-secret", True), "closed"]
+
+
+def test_ai_key_validation_only_succeeds_after_provider_accepts_key(monkeypatch):
+    monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
+    events = []
+
+    class FakeDeepSeekProvider:
+        def __init__(self, *, api_key, strict_errors):
+            events.append(("constructed", api_key, strict_errors))
+
+        def extract(self, context):
+            events.append(("validated", context))
+            return AiFeature(
+                enabled=True,
+                element_bias={
+                    "wood": 0.2,
+                    "fire": 0.2,
+                    "earth": 0.2,
+                    "metal": 0.2,
+                    "water": 0.2,
+                },
+                digit_bias={str(digit): 0.1 for digit in range(10)},
+                lucky_themes=["平衡"],
+                explanation="仅用于连接验证。",
+                confidence=0.1,
+            )
+
+        def close(self):
+            events.append("closed")
+
+    monkeypatch.setattr("lottery_luck.api.DeepSeekFlashProvider", FakeDeepSeekProvider)
+
+    response = client.post(
+        "/api/ai/validate",
+        headers={"X-DeepSeek-Api-Key": "  user-secret  "},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"valid": True}
+    assert events == [
+        ("constructed", "user-secret", True),
+        ("validated", {"purpose": "credential_validation"}),
+        "closed",
+    ]
+
+
+def test_ai_key_validation_rejects_invalid_credentials_without_echoing_key(monkeypatch):
+    monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
+    secret = "invalid-user-secret"
+
+    class FakeDeepSeekProvider:
+        def __init__(self, *, api_key, strict_errors):
+            assert api_key == secret
+            assert strict_errors is True
+
+        def extract(self, context):
+            raise AiAuthenticationError
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("lottery_luck.api.DeepSeekFlashProvider", FakeDeepSeekProvider)
+
+    response = client.post(
+        "/api/ai/validate",
+        headers={"X-DeepSeek-Api-Key": secret},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "AI_KEY_INVALID"
+    assert secret not in response.text
+
+
+def test_predict_rejects_invalid_user_ai_key_instead_of_returning_neutral_success(
+    monkeypatch,
+):
+    monkeypatch.delenv("LOTTERY_LUCK_AI_ENABLED", raising=False)
+
+    class FakeDeepSeekProvider:
+        def __init__(self, *, api_key, strict_errors):
+            assert api_key == "invalid-key"
+            assert strict_errors is True
+
+        def extract(self, context):
+            raise AiAuthenticationError
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("lottery_luck.api.DeepSeekFlashProvider", FakeDeepSeekProvider)
+
+    response = client.post(
+        "/api/predict",
+        json={
+            "game_key": "ssq",
+            "name": "张三",
+            "birth_date": "1990-05-17",
+        },
+        headers={"X-DeepSeek-Api-Key": "invalid-key"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["code"] == "AI_KEY_INVALID"
 
 
 def test_server_deepseek_key_is_not_used_without_user_header(monkeypatch):
@@ -2277,8 +2422,8 @@ def test_explicit_ai_switch_constructs_provider_and_closes_it(monkeypatch):
     events = []
 
     class FakeDeepSeekProvider:
-        def __init__(self, *, api_key):
-            events.append(("constructed", api_key))
+        def __init__(self, *, api_key, strict_errors):
+            events.append(("constructed", api_key, strict_errors))
 
         def extract(self, context):
             return {
@@ -2301,7 +2446,7 @@ def test_explicit_ai_switch_constructs_provider_and_closes_it(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert events == [("constructed", "user-secret"), "closed"]
+    assert events == [("constructed", "user-secret", True), "closed"]
 
 
 def test_oversized_user_deepseek_key_is_rejected_without_echoing_value(monkeypatch):

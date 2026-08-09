@@ -5,6 +5,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = PROJECT_ROOT / "cwl_history" / "cwl_history.sqlite"
+LOCAL_RUNTIME_DB_PATH = PROJECT_ROOT / ".runtime" / "cwl_history.sqlite"
 TURSO_DATABASE_URL_ENV = "TURSO_DATABASE_URL"
 TURSO_AUTH_TOKEN_ENV = "TURSO_AUTH_TOKEN"
 CW_API_URL = "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice"
@@ -50,3 +51,6 @@ def load_local_env(path: str | Path | None = None) -> None:
 
 
 load_local_env()
+LOCAL_RUNTIME_DB_PATH = Path(
+    os.getenv("LOTTERY_LUCK_LOCAL_DB_PATH", LOCAL_RUNTIME_DB_PATH)
+).expanduser()

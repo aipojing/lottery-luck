@@ -4,7 +4,9 @@ import httpx
 import pytest
 
 from lottery_luck.ai_features import (
+    AiAuthenticationError,
     AiFeature,
+    AiProviderResponseError,
     DeepSeekFlashProvider,
     NullAiProvider,
     neutral_ai_feature,
@@ -414,6 +416,18 @@ def test_deepseek_provider_http_error_falls_back_to_neutral(monkeypatch):
     assert "DeepSeek 请求失败" in feature.explanation
 
 
+def test_strict_deepseek_provider_rejects_invalid_credentials(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "invalid-key")
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(401))
+    )
+
+    provider = DeepSeekFlashProvider(client=client, strict_errors=True)
+
+    with pytest.raises(AiAuthenticationError):
+        provider.extract({"purpose": "credential_validation"})
+
+
 def test_deepseek_provider_invalid_json_falls_back_to_neutral(monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     client = httpx.Client(
@@ -428,3 +442,19 @@ def test_deepseek_provider_invalid_json_falls_back_to_neutral(monkeypatch):
 
     assert feature.enabled is False
     assert "DeepSeek 响应解析失败" in feature.explanation
+
+
+def test_strict_deepseek_provider_rejects_invalid_response(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, json={"choices": [{"message": {"content": "not json"}}]}
+            )
+        )
+    )
+
+    provider = DeepSeekFlashProvider(client=client, strict_errors=True)
+
+    with pytest.raises(AiProviderResponseError):
+        provider.extract({"purpose": "credential_validation"})

@@ -110,13 +110,14 @@ flowchart LR
 
 ## 数据层
 
-默认数据库路径：
+本地种子库与运行库：
 
 ```text
-cwl_history/cwl_history.sqlite
+cwl_history/cwl_history.sqlite   # 仓库内只读种子
+.runtime/cwl_history.sqlite      # 首次启动复制，后续本地写入
 ```
 
-本地和测试默认使用标准 SQLite。生产环境由 `lottery_luck.database.connect_database()` 根据 `TURSO_DATABASE_URL` 和 `TURSO_AUTH_TOKEN` 切换到 Turso/libSQL；领域模块通过 repository 访问数据，不直接感知本地或远端连接。
+本地和测试默认使用标准 SQLite，可通过 `LOTTERY_LUCK_LOCAL_DB_PATH` 覆盖运行库位置。生产环境由 `lottery_luck.database.connect_database()` 根据 `TURSO_DATABASE_URL` 和 `TURSO_AUTH_TOKEN` 切换到 Turso/libSQL；领域模块通过 repository 访问数据，不直接感知本地或远端连接。
 
 主要数据：
 
@@ -136,14 +137,14 @@ Vercel 使用两个项目：
 - API 项目：Root Directory 为仓库根目录，运行 FastAPI/Python Functions，持有 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、`DEEPSEEK_MODEL`、`LOTTERY_LUCK_AI_ENABLED=true`、`LOTTERY_LUCK_ADMIN_TOKEN`、`CRON_SECRET`、`ALLOWED_ORIGINS` 和 `LOTTERY_LUCK_QUOTA_ENABLED=false`。
 - Web 项目：Root Directory 为 `frontend`，只持有 `API_BASE_URL=https://<api-project>.vercel.app`，通过 API 项目读取预测、分析、抓取和后台数据。
 
-DeepSeek 调用只发生在 API 项目。用户 Key 由首页写入当前浏览器的 Local Storage，并仅在 `/api/predict` 请求头中传给 API；API 不持久化或记录该值。Turso token、管理员 token 和 cron secret 仍只能存在于 API 项目。
+DeepSeek 调用只发生在 API 项目。用户 Key 通过 `/api/ai/validate` 验证后由首页写入当前浏览器的 Local Storage，并在验证与 `/api/predict` 请求头中传给 API；API 不持久化或记录该值。Turso token、管理员 token 和 cron secret 仍只能存在于 API 项目。
 
 ## 前端状态
 
 首页使用 `localStorage` 保存：
 
 - `lotteryLuck.clientId.v1`：本地 client id，用于 V1 额度和云端记录。
-- `lotteryLuck.deepseekApiKey.v1`：用户自行配置的 DeepSeek API Key，仅用于预测请求。
+- `lotteryLuck.deepseekApiKey.v1`：用户自行配置的 DeepSeek API Key，仅用于连接验证和预测请求。
 - `lotteryLuck.fortuneHistory.v1`：本机历史财运号。
 
 免费用户只依赖本地记录；付费态会调用云端记录 API。

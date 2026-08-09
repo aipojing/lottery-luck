@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 import pytest
 
 from lottery_luck import product_events
-from lottery_luck.product_events import ensure_product_events_table, record_event
+from lottery_luck.product_events import (
+    ensure_product_events_table,
+    prune_product_events,
+    record_event,
+)
 from lottery_luck.repository import LotteryRepository
 
 
@@ -489,6 +493,37 @@ def test_record_event_scopes_stored_rows_by_normalized_client_and_allows_repeats
         "expired",
         "reviewed",
     ]
+
+
+def test_product_event_retention_removes_expired_rows_and_caps_total_count():
+    connection = _initialized_connection()
+    rows = [
+        ("client-a", "workbench_opened", "{}", "2026-01-01T00:00:00+00:00"),
+        ("client-a", "workbench_opened", "{}", "2026-08-07T00:00:00+00:00"),
+        ("client-b", "workbench_opened", "{}", "2026-08-08T00:00:00+00:00"),
+        ("client-c", "workbench_opened", "{}", "2026-08-09T00:00:00+00:00"),
+    ]
+    connection.executemany(
+        """
+        INSERT INTO product_events (client_id, event_name, properties, occurred_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        rows,
+    )
+    connection.commit()
+
+    deleted = prune_product_events(
+        connection,
+        retention_days=90,
+        max_rows=2,
+        now=datetime(2026, 8, 9, tzinfo=timezone.utc),
+    )
+
+    remaining = connection.execute(
+        "SELECT client_id FROM product_events ORDER BY occurred_at, id"
+    ).fetchall()
+    assert deleted == 2
+    assert [row[0] for row in remaining] == ["client-b", "client-c"]
 
 
 def test_repository_concurrent_product_event_writes_persist_all_rows(tmp_path):

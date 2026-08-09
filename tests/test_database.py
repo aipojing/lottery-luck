@@ -87,6 +87,33 @@ def test_connect_database_uses_explicit_sqlite_path(tmp_path, monkeypatch):
         connection.close()
 
 
+def test_implicit_local_database_uses_runtime_copy_without_mutating_seed(
+    tmp_path, monkeypatch
+):
+    seed_path = tmp_path / "seed.sqlite"
+    runtime_path = tmp_path / ".runtime" / "lottery.sqlite"
+    with sqlite3.connect(seed_path) as connection:
+        connection.execute("CREATE TABLE marker (value TEXT)")
+        connection.execute("INSERT INTO marker VALUES ('seed')")
+
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    monkeypatch.setattr(database, "DB_PATH", seed_path)
+    monkeypatch.setattr(database, "LOCAL_RUNTIME_DB_PATH", runtime_path)
+
+    with database.connect_database() as connection:
+        assert connection.execute("SELECT value FROM marker").fetchone()[0] == "seed"
+        connection.execute("INSERT INTO marker VALUES ('runtime')")
+
+    with sqlite3.connect(seed_path) as connection:
+        assert connection.execute("SELECT value FROM marker").fetchall() == [("seed",)]
+    with sqlite3.connect(runtime_path) as connection:
+        assert connection.execute("SELECT value FROM marker").fetchall() == [
+            ("seed",),
+            ("runtime",),
+        ]
+
+
 def test_connect_database_uses_libsql_for_implicit_production_connection(monkeypatch):
     calls = []
 

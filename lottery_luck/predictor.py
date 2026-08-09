@@ -5,7 +5,7 @@ from datetime import date
 from math import isfinite
 from typing import Any
 
-from .ai_features import AiFeature, NullAiProvider, neutral_ai_feature
+from .ai_features import AiFeature, AiProviderError, NullAiProvider, neutral_ai_feature
 from .history import build_history_profile
 from .personal import (
     DIGIT_ELEMENT,
@@ -356,6 +356,8 @@ class PredictionEngine:
         }
         try:
             feature = self.ai_provider.extract(context)
+        except AiProviderError:
+            raise
         except Exception:
             return neutral_ai_feature()
         if not isinstance(feature, AiFeature):

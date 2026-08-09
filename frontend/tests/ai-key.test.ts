@@ -52,15 +52,26 @@ describe("user DeepSeek API key", () => {
     expect(() => api.save("s".repeat(513), storage)).toThrow(/过长/);
   });
 
+  it("can validate a key without storing it", async () => {
+    const { api, storage } = await loadAiKeyModule();
+
+    expect(api.prepare("  sk-candidate  ")).toBe("sk-candidate");
+    expect(api.read(storage)).toBe("");
+  });
+
   it("fails closed without JavaScript and limits header use to prediction", async () => {
     const html = await readFile(path.join(process.cwd(), "..", "web", "index.html"), "utf8");
     const appSource = await readFile(path.join(process.cwd(), "..", "web", "app.js"), "utf8");
 
     expect(html).toMatch(/<form[^>]+id="aiSettingsForm"[^>]+method="dialog"/);
     expect(html).not.toContain('name="deepseek_api_key"');
+    expect(appSource).toContain('fetchJson("/api/ai/validate"');
     expect(appSource.match(/withPredictionHeader/g)).toHaveLength(1);
     expect(appSource.indexOf('fetchJson("/api/predict"')).toBeLessThan(
       appSource.indexOf("withPredictionHeader"),
+    );
+    expect(appSource.indexOf('fetchJson("/api/ai/validate"')).toBeLessThan(
+      appSource.indexOf("LotteryAiKey.save"),
     );
   });
 

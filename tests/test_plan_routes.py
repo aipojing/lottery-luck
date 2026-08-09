@@ -141,6 +141,17 @@ def test_plan_routes_require_client_header(repo):
     assert response.json()["detail"] == "X-Lottery-Client-Id is required"
 
 
+def test_create_plan_returns_429_before_writing_when_rate_limited(repo, monkeypatch):
+    monkeypatch.setattr(repo, "consume_write_limit", lambda **kwargs: False)
+
+    response = client.post("/api/plans", headers=CLIENT_A, json=_plan_payload())
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "write rate limit exceeded"}
+    assert response.headers["Retry-After"]
+    assert repo.list_plans("client-a") == []
+
+
 def test_plan_routes_map_domain_value_errors_to_generic_422_without_leak():
     class BrokenRepo:
         def list_plans(self, client_id):

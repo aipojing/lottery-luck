@@ -10,6 +10,7 @@ output/playwright/
 frontend/.next/
 frontend/node_modules/
 .vercel/
+.runtime/
 .env
 .env.local
 .env.*.local

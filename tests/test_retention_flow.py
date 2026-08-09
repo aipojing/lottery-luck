@@ -632,6 +632,9 @@ def _install_client_id(page: Page, base_url: str, client_id: str) -> None:
 
 def _complete_real_3d_prediction(page: Page, base_url: str) -> None:
     page.goto(base_url)
+    page.evaluate(
+        "() => localStorage.setItem('lotteryLuck.deepseekApiKey.v1', 'sk-test-key')"
+    )
     page.wait_for_function("() => !document.querySelector('#submitButton').disabled")
     page.wait_for_function("() => Boolean(window.FortuneMotion)")
     page.evaluate("() => { window.FortuneMotion.resolve = async () => {}; }")

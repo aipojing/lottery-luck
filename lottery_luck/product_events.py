@@ -83,6 +83,8 @@ MAX_COUNT_PROPERTY_VALUE = 10000
 MAX_CLIENT_ID_LENGTH = 96
 MAX_STRING_PROPERTY_LENGTH = 64
 MAX_PROPERTIES_BYTES = 2048
+PRODUCT_EVENT_RETENTION_DAYS = 90
+PRODUCT_EVENT_MAX_ROWS = 100000
 INVALID_EVENT_MESSAGE = "invalid product event"
 CURRENT_PRODUCT_EVENTS_INDEX = "idx_product_events_client_time"
 OLD_PRODUCT_EVENTS_INDEX = "idx_product_events_client_occurred_at"
@@ -124,6 +126,41 @@ def record_event(
     )
     connection.commit()
     return _get_event(connection, int(cursor.lastrowid))
+
+
+def prune_product_events(
+    connection: sqlite3.Connection,
+    *,
+    retention_days: int = PRODUCT_EVENT_RETENTION_DAYS,
+    max_rows: int = PRODUCT_EVENT_MAX_ROWS,
+    now: datetime | None = None,
+) -> int:
+    if retention_days <= 0 or max_rows <= 0:
+        raise ValueError("product event retention values must be positive")
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    cutoff = (current.astimezone(timezone.utc) - timedelta(days=retention_days)).isoformat()
+    before = int(connection.execute("SELECT COUNT(*) FROM product_events").fetchone()[0])
+    connection.execute(
+        "DELETE FROM product_events WHERE occurred_at < ?",
+        (cutoff,),
+    )
+    connection.execute(
+        """
+        DELETE FROM product_events
+        WHERE id NOT IN (
+            SELECT id
+            FROM product_events
+            ORDER BY occurred_at DESC, id DESC
+            LIMIT ?
+        )
+        """,
+        (max_rows,),
+    )
+    connection.commit()
+    after = int(connection.execute("SELECT COUNT(*) FROM product_events").fetchone()[0])
+    return before - after
 
 
 def ensure_product_events_table(connection: sqlite3.Connection) -> None:

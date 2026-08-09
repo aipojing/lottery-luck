@@ -17,7 +17,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import plans, workbench_3d
-from .ai_features import DeepSeekFlashProvider, NullAiProvider
+from .ai_features import (
+    AiAuthenticationError,
+    AiProviderResponseError,
+    AiServiceUnavailableError,
+    DeepSeekFlashProvider,
+    NullAiProvider,
+)
 from .admin_auth import (
     ADMIN_TOKEN_HEADER,
     AUTH_DETAIL,
@@ -38,6 +44,7 @@ from . import auto_update, scheduler
 from .crawler import crawl_cwl_games
 from .config import PROJECT_ROOT, env_flag, quota_enabled
 from .data_health import build_data_health_report, build_public_freshness
+from .database import remote_database_enabled
 from .personal import PersonalInput
 from .plan_routes import get_repository, router as plan_router
 from .predictor import PredictionEngine
@@ -52,6 +59,7 @@ from .strategy import (
     generate_strategy_candidates,
 )
 from .workbench_routes import router as workbench_router
+from .write_limits import WriteRateLimitExceeded, enforce_request_write_limits
 
 
 AUTO_UPDATE_SHUTDOWN_TIMEOUT_SECONDS = 2.0
@@ -70,6 +78,10 @@ async def lifespan(app: FastAPI):
         repo = LotteryRepository()
         repo.initialize_product_events_schema()
         repo.initialize_plan_schema()
+        if remote_database_enabled():
+            repo.initialize_write_limits_schema()
+            repo.prune_product_events()
+            repo.prune_write_limits()
     except Exception:
         LOGGER.exception("startup schema initialization failed")
         raise
@@ -347,8 +359,34 @@ def get_ai_provider(
     if len(api_key) > USER_DEEPSEEK_API_KEY_MAX_LENGTH:
         raise HTTPException(status_code=400, detail="invalid DeepSeek API key")
     if api_key:
-        return DeepSeekFlashProvider(api_key=api_key)
+        return DeepSeekFlashProvider(api_key=api_key, strict_errors=True)
     return NullAiProvider("请在 AI 设置中配置 DeepSeek API Key，当前使用中性特征。")
+
+
+def _ai_http_exception(exc: Exception) -> HTTPException:
+    if isinstance(exc, AiAuthenticationError):
+        return HTTPException(
+            status_code=401,
+            detail={
+                "code": "AI_KEY_INVALID",
+                "message": "DeepSeek API Key 无效或已失效，请重新配置。",
+            },
+        )
+    if isinstance(exc, AiProviderResponseError):
+        return HTTPException(
+            status_code=502,
+            detail={
+                "code": "AI_RESPONSE_INVALID",
+                "message": "DeepSeek 返回内容暂时无法使用，请稍后重试。",
+            },
+        )
+    return HTTPException(
+        status_code=502,
+        detail={
+            "code": "AI_SERVICE_UNAVAILABLE",
+            "message": "DeepSeek 服务暂时不可用，请稍后重试。",
+        },
+    )
 
 
 def _frontend_number_rule(game_key: str) -> dict[str, Any]:
@@ -563,6 +601,7 @@ def cloud_record_list(
 @app.post("/api/events", status_code=202)
 def product_event_create(
     request: ProductEventRequest,
+    http_request: Request,
     repo: Annotated[LotteryRepository, Depends(get_repository)],
     x_lottery_client_id: Annotated[
         str | None,
@@ -573,11 +612,23 @@ def product_event_create(
     if not client_id:
         raise HTTPException(status_code=400, detail="X-Lottery-Client-Id is required")
     try:
+        enforce_request_write_limits(
+            repo,
+            http_request,
+            client_id=client_id,
+            category="events",
+        )
         repo.record_product_event(
             client_id=client_id,
             event_name=request.event_name,
             properties=request.properties,
         )
+    except WriteRateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="write rate limit exceeded",
+            headers={"Retry-After": str(exc.retry_after)},
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="invalid product event") from exc
     except sqlite3.OperationalError as exc:
@@ -690,6 +741,34 @@ def cron_crawl(
     return {"ok": True, "results": [cwl_result["task"], sports_result["task"]]}
 
 
+@app.post("/api/ai/validate")
+def validate_ai_key(
+    ai_provider: Annotated[
+        NullAiProvider | DeepSeekFlashProvider,
+        Depends(get_ai_provider),
+    ],
+) -> dict[str, bool]:
+    if isinstance(ai_provider, NullAiProvider):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "AI_KEY_REQUIRED",
+                "message": "请输入 DeepSeek API Key。",
+            },
+        )
+    try:
+        feature = ai_provider.extract({"purpose": "credential_validation"})
+        if not getattr(feature, "enabled", False):
+            raise AiProviderResponseError("DeepSeek returned an invalid response")
+        return {"valid": True}
+    except (AiAuthenticationError, AiProviderResponseError, AiServiceUnavailableError) as exc:
+        raise _ai_http_exception(exc) from exc
+    finally:
+        close = getattr(ai_provider, "close", None)
+        if callable(close):
+            close()
+
+
 @app.post("/api/predict")
 def predict(
     request: PredictRequest,
@@ -746,6 +825,9 @@ def predict(
         elif use_quota and client_id:
             payload["quota"] = repo.quota_status(client_id)
         return payload
+    except (AiAuthenticationError, AiProviderResponseError, AiServiceUnavailableError) as exc:
+        refund_consumed_quota()
+        raise _ai_http_exception(exc) from exc
     except ValueError as exc:
         refund_consumed_quota()
         raise HTTPException(status_code=400, detail=str(exc)) from exc

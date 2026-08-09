@@ -26,4 +26,20 @@ describe("legacy compatibility routes", () => {
       destination: "https://api.example.test/api/:path*",
     });
   });
+
+  it("sets browser security headers on every public route", async () => {
+    const rules = await nextConfig.headers();
+    const allRoutes = rules.find((rule) => rule.source === "/:path*");
+    const headers = Object.fromEntries(
+      (allRoutes?.headers || []).map((header) => [header.key, header.value]),
+    );
+
+    expect(headers["Content-Security-Policy"]).toContain("default-src 'self'");
+    expect(headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+    expect(headers["Content-Security-Policy"]).toContain("object-src 'none'");
+    expect(headers["X-Content-Type-Options"]).toBe("nosniff");
+    expect(headers["X-Frame-Options"]).toBe("DENY");
+    expect(headers["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    expect(headers["Permissions-Policy"]).toContain("camera=()");
+  });
 });
