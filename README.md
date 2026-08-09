@@ -15,13 +15,30 @@
 - 首页起盘：姓名、历法、出生日期、时辰、出生地、当前城市、生成模式。
 - 三种生成模式：稳财号、偏财号、守财号。
 - 玄学解释链：本命财格、今日财签、避开号、大师起盘、逐号释义。
-- 数据分析页：热号、冷号、遗漏、走势、和值、奇偶、区间、筛选器、回测、号码池、开奖日历。
-- 福彩3D工具箱：走势图、遗漏统计、出次统计、冷热码、号码查询、号码属性、缩水选号、最近开奖 8 个工具，均可深链接。
-- 策略实验室：策略候选、回测、对比。
-- 选号工具：快速选号、锁号排除、复式、胆拖/组选包号、预算缩水、号码整理和本地号码篮。
+- 研究中心（唯一的数据观察与策略验证入口）：
+  - 数据观察：热号、冷号、遗漏、走势、形态统计、最近开奖、开奖日历与数据新鲜度。
+  - 策略验证：策略预设、自定义规则、历史回测、多策略对比、本地保存/载入策略。
+- 福彩3D数据工具：走势图、遗漏统计、出次统计、冷热码、号码查询、号码属性、最近开奖 7 个观察工具，均可深链接。
+- 选号工具（唯一的号码生成与执行入口）：快速选号、锁号排除、复式、胆拖/组选包号、条件选号、预算缩水、号码整理、统一号码篮与 CSV 导出。
 - 后台：数据健康、任务队列、爬虫补采、玄学权重。
 - 历史商业化代码已休眠：生产前端不展示支付、会员、次数包或额度行为，也不调用额度接口。
 - 隐私边界：`/privacy.html` 说明第三方 AI 数据最小化、浏览器本地历史和保存方案处理。
+
+## 产品边界
+
+- 顶级业务入口只有两个：`研究中心`（回答“历史发生了什么、某套规则过去表现如何”）和 `选号工具`（回答“现在怎样生成、筛减、保存和导出号码”）。预测首页、隐私边界与 AI 设置保持独立。
+- 研究中心稳定地址使用二级视图参数：
+  - 数据观察：`/analysis.html?game=ssq&view=data`
+  - 策略验证：`/analysis.html?game=ssq&view=strategy`
+- 五个彩种共用同一页面框架，但只显示该彩种规则支持的能力（服务端 `GET /api/surfaces/config` 提供能力矩阵，前端不做第二套硬编码）：
+  - 双色球/大乐透/快乐8：分区冷热遗漏走势 + 红蓝区/前后区/选十规则 + 胆拖选号。
+  - 福彩3D/排列3：百十个位走势、位置遗漏、出次、号码查询与属性 + 直选/组三/组六规则 + 定位复式、组选包号与条件缩水。
+- 策略到选号的单向交接：策略验证中点击“使用此策略选号”，归一化的 `game_key`、预设、窗口和条件写入一次性 `sessionStorage` 键 `lottery_research_handoff_v1`（30 分钟过期），跳转到 `/tools.html?game=<game>&tool=conditional&source=strategy`；选号工具校验后预填条件选号表单，消费即删除，不自动生成号码。
+- 旧链接兼容：
+  - `/strategy.html?game=<game>`（及 `/strategy` rewrite）`replace` 跳转到研究中心策略验证视图。
+  - `/analysis.html?game=3d&tool=reduction`（旧缩水选号）`replace` 跳转到 `/tools.html?game=3d&tool=conditional&source=legacy`。
+  - 3D 七个观察工具的 `tool=` 深链接继续映射到研究中心数据观察。
+- 本地数据兼容：旧 `lotteryLuck:strategyLab:<game>` 策略键沿用（非法记录保留并标记“需要重新保存”）；旧 `lotteryLuck:numberPool:<game>` 号码池首次打开选号工具时幂等迁移进统一号码篮，原键不删除。
 
 ## 技术栈
 
@@ -44,38 +61,38 @@ python -m uvicorn lottery_luck.api:app --host 127.0.0.1 --port 8017
 访问：
 
 - 首页：`http://127.0.0.1:8017/`
-- 分析中心：`http://127.0.0.1:8017/analysis.html?game=ssq&window=30`
-- 福彩3D工具箱：`http://127.0.0.1:8017/analysis.html?game=3d`
-- 策略实验室：`http://127.0.0.1:8017/strategy.html?game=ssq`
+- 研究中心（数据观察）：`http://127.0.0.1:8017/analysis.html?game=ssq&view=data`
+- 研究中心（策略验证）：`http://127.0.0.1:8017/analysis.html?game=ssq&view=strategy`
+- 福彩3D数据工具：`http://127.0.0.1:8017/analysis.html?game=3d`
 - 选号工具：`http://127.0.0.1:8017/tools.html?game=ssq&tool=quick`
 - 数据后台：`http://127.0.0.1:8017/admin.html`
 
-### 福彩3D工具箱 URL
+### 福彩3D数据工具 URL
 
-`analysis.html?game=3d` 默认进入工具箱首页。8 个工具用 `tool=` 深链接。除 `recent` 外的 7 个工具
+`analysis.html?game=3d` 默认进入工具首页。7 个观察工具用 `tool=` 深链接。除 `recent` 外的 6 个工具
 都会带统计窗口请求数据，因此都接受并回写 `window=30|60|120`（默认 30）：链接怎么打开，刷新和分享
 后就还是同一个窗口。其中只有 `trend`、`omission`、`frequency`、`heat` 在工具内提供窗口切换按钮，
-`number`、`attributes`、`reduction` 沿用链接带来的窗口。`recent` 展示固定的最近 10 期，不带 `window`。
+`number`、`attributes` 沿用链接带来的窗口。`recent` 展示固定的最近 10 期，不带 `window`。
 
 | 工具 | URL |
 | --- | --- |
-| 工具箱首页 | `/analysis.html?game=3d` |
+| 工具首页 | `/analysis.html?game=3d` |
 | 走势图 | `/analysis.html?game=3d&tool=trend&window=30` |
 | 遗漏统计 | `/analysis.html?game=3d&tool=omission&window=30` |
 | 出次统计 | `/analysis.html?game=3d&tool=frequency&window=60` |
 | 冷热码 | `/analysis.html?game=3d&tool=heat&window=120` |
 | 号码查询 | `/analysis.html?game=3d&tool=number&window=30` |
 | 号码属性 | `/analysis.html?game=3d&tool=attributes&window=30` |
-| 缩水选号 | `/analysis.html?game=3d&tool=reduction&window=30` |
 | 最近开奖 | `/analysis.html?game=3d&tool=recent` |
 
-未知 `tool=` 值回落到工具箱首页；旧链接 `mode=pro` 会重定向到 `tool=frequency`，`mode=simple`
-回到工具箱首页。工具深链接会在下方补一条工具箱首页历史记录，浏览器返回键回到工具箱而不是离开页面。
+未知 `tool=` 值回落到工具首页；旧链接 `mode=pro` 会重定向到 `tool=frequency`，`mode=simple`
+回到工具首页。旧的缩水选号深链接 `tool=reduction`（含 `tool=filter`）会 `replace` 跳转到选号工具
+`/tools.html?game=3d&tool=conditional&source=legacy`。工具深链接会在下方补一条工具首页历史记录，
+浏览器返回键回到工具而不是离开页面。
 
-工具箱依赖的接口：`GET /api/workbench/3d/summary`（冷热、出次、遗漏、最近开奖、数据新鲜度、
-本期方案）、`GET /api/3d/trends`（走势图）、`POST /api/3d/number-query`（号码查询和号码属性）、
-`POST /api/3d/filter`（缩水选号）。数据 `stale` 或 `empty` 时，历史统计与查询工具照常可用，只有
-本期候选生成和方案保存按 `can_claim_current` 关闭。
+工具依赖的接口：`GET /api/workbench/3d/summary`（冷热、出次、遗漏、最近开奖、数据新鲜度、
+本期方案）、`GET /api/3d/trends`（走势图）、`POST /api/3d/number-query`（号码查询和号码属性）。
+数据 `stale` 或 `empty` 时，历史统计与查询工具照常可用，只有本期方案保存按 `can_claim_current` 关闭。
 
 ## 环境变量
 
@@ -138,7 +155,7 @@ TURSO_DATABASE_URL='libsql://...' TURSO_AUTH_TOKEN='...' \
 - `calendar_type`：`solar` 或 `lunar`。
 - `location_relation`：`same`、`different` 或 `incomplete`。location_relation 只按去除首尾空白、压缩空白和大小写归一后的文本精确相等判断，不会做行政区划后缀等价。
 
-第三方 AI 不直接接收原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。浏览器本地财运历史可能保存精简摘要；“最近填写”会在成功起盘后保存原始表单资料，但不会自动回填，只有用户点击记录时才带入表单，并支持逐条删除。两类记录都只写入当前浏览器的 Local Storage，不会上传为云端财运记录或云端资料；清理站点数据也会移除这些本机记录。福彩3D工具箱的结构化方案使用独立方案接口，方案详情页提供删除能力。
+第三方 AI 不直接接收原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。浏览器本地历史可能保存精简摘要，可在首页清空；“最近填写”会在成功起盘后保存原始表单资料，但不会自动回填，只有用户点击记录时才带入表单，并支持逐条删除。首页财运历史只写入当前浏览器的 Local Storage，不会上传为云端财运记录或云端资料；清理站点数据也会移除这些本机记录。福彩3D工具箱的结构化方案使用独立方案接口，方案详情页提供删除能力。
 
 `product_events` 只接受事件名和属性白名单。允许事件名为 `prediction_completed`、`plan_saved`、`workbench_opened`、`plan_edited`、`review_viewed`、`plan_carried_forward`、`tool_opened`、`tool_result_generated`；允许属性为 `game_key`、`source_type`、`mode`、`window`、`entry_count`、`candidate_count`、`freshness_status`、`review_status`、`tool_key`、`result_count`。`tool_key` 只接受 8 个工具的固定枚举，`result_count` 只接受整数条数。事件不会采集姓名、生日、出生地、当前城市、原始号码（含查询号码）、方案标题、自由文本或 `plan_id`。事件保留 90 天且总量最多 10 万条；事件和方案写入均按客户端与网络来源双重限流，网络来源只保存不可逆摘要。
 
@@ -160,8 +177,10 @@ for file in \
   web/workbench-3d.js \
   web/three-d-toolbox.js \
   web/analysis.js \
+  web/research-strategy.js \
+  web/strategy-redirect.js \
+  web/tools.js \
   web/result.js \
-  web/strategy.js \
   web/admin.js \
   web/motion.js
 do
@@ -170,12 +189,12 @@ done
 git diff --check
 ```
 
-只验证福彩3D工具箱：
+只验证福彩3D数据工具：
 
 ```bash
-# 工具箱路由、8 个工具、stale 降级、事件与移动端布局的前端行为测试
+# 数据工具路由、7 个观察工具、stale 降级、事件与移动端布局的前端行为测试
 PYTHONPATH=. .venv/bin/pytest tests/test_frontend_behavior.py -k "3d" -q
-# 工具箱后端：走势、号码查询、缩水、summary
+# 数据工具后端：走势、号码查询、summary（旧缩水接口仍在兼容期，见 test_three_d_tools.py）
 PYTHONPATH=. .venv/bin/pytest tests/test_three_d_tools.py tests/test_workbench_3d.py tests/test_workbench_routes.py -q
 # 视觉证据：临时 SQLite、固定 today=2026-07-13、关闭自动更新、禁用外部网络，重复两次并要求截图 SHA-256 一致
 PYTHONPATH=. .venv/bin/python tests/capture_retention_qa.py
@@ -219,6 +238,9 @@ lottery_luck/
   predictor.py       号码生成、玄学解释、大师起盘 payload
   analysis.py        分析中心、筛选器、回测、号码池
   strategy.py        策略实验室
+  number_tools.py    选号工具领域算法
+  conditional_tools.py 条件选号（策略来源与数字缩水）适配
+  surface_config.py  五彩种页面能力矩阵
   quota.py           预测额度、模拟解锁、云端记录
   crawler.py         福彩官方数据补采
   sports_crawler.py  体彩官方数据补采
@@ -227,12 +249,18 @@ lottery_luck/
   settings.py        权重、文案、商业化额度配置
 web/
   index.html/app.js  首页起盘体验
-  analysis.html/js   分析中心与福彩3D工具箱
-  three-d-toolbox.js 3D 工具箱路由、工具目录与工具事件
+  analysis.html/js   研究中心外壳、数据观察与福彩3D数据工具路由
+  research-strategy.js 策略验证视图（订阅研究中心状态）
+  three-d-toolbox.js 3D 数据工具路由、工具目录与工具事件
   workbench-3d.js    3D 工具数据加载、渲染与方案保存
-  strategy.html/js   策略实验室
+  strategy.html/strategy-redirect.js 旧策略入口兼容跳转
+  tools.html/js/css  选号工具（含条件选号、策略交接与号码池迁移）
   result.html/js     历史财运号详情
   admin.html/js      数据后台
+frontend/
+  app/               Next.js 静态壳
+  public/            由 scripts/sync-legacy.mjs 从 web/ 生成，勿手改
+  scripts/sync-legacy.mjs `npm run sync:legacy`：同步 git 已跟踪的 web/ 文件
 cwl_history/
   cwl_history.sqlite 本地只读种子库
 .runtime/
@@ -244,6 +272,9 @@ docs/
   OPERATIONS.md
   COMMERCIALIZATION.md
 ```
+
+静态前端唯一源文件是 `web/`。修改后执行 `cd frontend && npm run sync:legacy` 生成
+`frontend/public/`，再提交两者；不要直接手改 `frontend/public/`。
 
 ## 文档索引
 

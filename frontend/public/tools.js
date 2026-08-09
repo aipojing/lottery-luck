@@ -394,7 +394,7 @@
     } else {
       body = `<label>批次 A<textarea name="batch_a" rows="5" placeholder="每行一注号码"></textarea></label><label>批次 B<textarea name="batch_b" rows="5" placeholder="每行一注号码"></textarea></label><label>整理方式 <select name="operation"><option value="dedupe">批次 A 去重</option><option value="union">合并</option><option value="intersection">交集</option><option value="difference">A 减 B</option></select></label>${optionsMarkup(game)}`;
     }
-    return `<form class="tool-form" data-action="${action}" data-tool="${tool}" novalidate>${body}<button class="tool-submit" type="submit">执行${document.querySelector(`[data-tool-card="${tool}"] strong`)?.textContent || "工具"}</button></form>`;
+    return `<form class="tool-form${tool === "conditional" ? " conditional-form" : ""}" data-action="${action}" data-tool="${tool}" novalidate>${body}<button class="tool-submit" type="submit">执行${document.querySelector(`[data-tool-card="${tool}"] strong`)?.textContent || "工具"}</button></form>`;
   }
 
   function basketCheckboxes(gameKey) {

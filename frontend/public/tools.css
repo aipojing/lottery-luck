@@ -306,6 +306,10 @@
   gap: 14px;
 }
 
+.tool-form.conditional-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .conditional-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -323,16 +327,18 @@
   color: #c9c0ad;
 }
 
-.conditional-checks label {
+.tool-form .conditional-checks label {
   display: inline-flex;
   min-height: 40px;
-  margin-right: 12px;
+  margin-right: 14px;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
-.conditional-checks input {
+.tool-form .conditional-checks input {
   min-height: auto;
+  width: auto;
 }
 
 .tool-disclaimer {
