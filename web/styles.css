@@ -441,6 +441,60 @@ select:focus-visible {
   outline-offset: 3px;
 }
 
+.research-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px auto 18px;
+}
+
+.research-view-tabs [data-research-view] {
+  min-height: 44px;
+  min-width: 132px;
+  border: 1px solid rgba(214, 169, 88, 0.32);
+  border-radius: 999px;
+  padding: 10px 24px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.research-view-tabs [data-research-view][aria-selected="true"] {
+  border-color: rgba(239, 189, 93, 0.85);
+  color: var(--gold-soft);
+  background: rgba(214, 169, 88, 0.12);
+  text-shadow: 0 0 18px rgba(231, 183, 84, 0.28);
+}
+
+.research-view-tabs [data-research-view]:hover {
+  color: var(--gold-soft);
+}
+
+.research-view-tabs [data-research-view]:focus-visible {
+  outline: 2px solid var(--gold-soft);
+  outline-offset: 3px;
+}
+
+/* An open 3D tool compacts every other shell surface (workbench-3d.css); the research
+   view switcher follows suit so the tool's data keeps owning the first screen. */
+body:has(#threeDToolbox.is-tool-open) .research-view-tabs {
+  display: none;
+}
+
+.research-strategy-view .strategy-status {
+  margin: 12px 0 0;
+}
+
+.research-strategy-view .saved-resave-notice {
+  display: block;
+  margin-top: 4px;
+  color: #e2a98f;
+  font-size: 0.85rem;
+}
+
 .oracle-board {
   position: relative;
   display: grid;

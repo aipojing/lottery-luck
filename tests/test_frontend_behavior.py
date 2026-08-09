@@ -1093,6 +1093,101 @@ def test_strategy_redirect_home_remains_prediction_and_3d_workbench_has_no_birth
     assert browser_page.locator('#threeDToolbox input[name="current_city"]').count() == 0
 
 
+def test_research_center_has_data_and_strategy_views_for_all_games(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&view=strategy")
+    browser_page.wait_for_selector("#researchViewTabs")
+    assert browser_page.locator('[data-research-view="strategy"]').get_attribute("aria-selected") == "true"
+    assert browser_page.locator("#researchStrategyView").is_visible()
+    assert browser_page.locator("#strategyCompat").count() == 0
+    assert browser_page.locator('[data-game="3d"]').get_attribute("aria-pressed") == "true"
+
+
+def test_research_view_switch_updates_url_without_duplicate_game_tabs(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=dlt&view=data&window=60")
+    assert browser_page.locator("#gameTabs").count() == 1
+    browser_page.locator('[data-research-view="strategy"]').click()
+    browser_page.wait_for_function("() => new URLSearchParams(location.search).get('view') === 'strategy'")
+    assert browser_page.locator("#researchDataView").is_hidden()
+    assert browser_page.locator("#researchStrategyView").is_visible()
+
+
+def test_strategy_view_hands_normalized_conditions_to_tools(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=strategy")
+    browser_page.wait_for_selector("#useStrategyButton")
+    browser_page.locator('[name="sum_min"]').fill("80")
+    browser_page.locator("#useStrategyButton").click()
+    browser_page.wait_for_url("**/tools.html?game=ssq&tool=conditional&source=strategy")
+    handoff = browser_page.evaluate("() => JSON.parse(sessionStorage.getItem('lottery_research_handoff_v1'))")
+    assert handoff["version"] == 1
+    assert handoff["game_key"] == "ssq"
+    assert handoff["conditions"]["sum_min"] == 80
+
+
+def test_saved_strategies_stay_scoped_by_legacy_game_key_and_invalid_rows_are_preserved(live_server_url, browser_page):
+    browser_page.add_init_script("""
+      localStorage.setItem("lotteryLuck:strategyLab:ssq", JSON.stringify([
+        {name: "旧均衡策略", preset: "balanced", form: {sum_min: 80, sum_max: 130}},
+        {name: "旧非法策略", preset: "removed-preset", form: {unknown_rule: 1}}
+      ]));
+      localStorage.setItem("lotteryLuck:strategyLab:dlt", JSON.stringify([
+        {name: "大乐透策略", preset: "balanced", form: {sum_min: 60}}
+      ]));
+    """)
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=strategy")
+    browser_page.wait_for_selector('[data-saved-strategy-state="valid"]')
+    assert browser_page.locator("#savedStrategies li").count() == 2
+    invalid = browser_page.locator('[data-saved-strategy-state="needs-resave"]')
+    assert "需要重新保存" in invalid.inner_text()
+    assert invalid.get_by_role("button", name="加载").is_disabled()
+    assert browser_page.locator("#savedStrategies").get_by_text("大乐透策略").count() == 0
+    saved = browser_page.evaluate("() => JSON.parse(localStorage.getItem('lotteryLuck:strategyLab:ssq'))")
+    assert len(saved) == 2
+
+
+def test_late_strategy_response_is_ignored_after_switching_to_data(live_server_url, browser_page):
+    page = browser_page
+    calls = []
+    page.add_init_script("""
+      (() => {
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = (input, init = {}) => {
+          const url = new URL(typeof input === "string" ? input : input.url, location.origin);
+          const response = originalFetch(input, init);
+          if (url.pathname !== "/api/strategy/ssq/generate") return response;
+          return response.then(
+            (value) => new Promise((resolve) => setTimeout(() => resolve(value), 800)),
+          );
+        };
+      })();
+    """)
+
+    def route_generate(route):
+        calls.append(route.request.url)
+        route.fulfill(status=200, content_type="application/json", body=json.dumps({
+            "game_key": "ssq",
+            "preset": "balanced",
+            "strategy_name": "迟到策略",
+            "description": "竞态测试",
+            "conditions": {},
+            "basis": {"draw_count": 12, "hot_main": [], "excluded_recent": []},
+            "diagnostics": {"preset_label": "均衡型", "condition_count": 0, "active_conditions": []},
+            "candidates": [{"main": [1, 2, 3, 4, 5, 6], "special": [7], "tags": ["迟到标记"]}],
+            "baseline": {"label": "随机基准", "candidates": []},
+            "disclaimer": "历史结果不代表未来概率。",
+        }, ensure_ascii=False))
+
+    page.route(f"{live_server_url}/api/strategy/ssq/generate", route_generate)
+    page.goto(f"{live_server_url}/analysis.html?game=ssq&view=strategy")
+    page.locator("#generateButton").click()
+    page.locator('[data-research-view="data"]').click()
+    page.wait_for_timeout(1_200)
+
+    assert calls
+    assert page.locator("#researchDataView").is_visible()
+    assert page.locator("#researchStrategyView").is_hidden()
+    assert "迟到标记" not in page.locator("#candidateResult").inner_text()
+
+
 def test_retention_events_workbench_opened_waits_for_summary_success(
     live_server_url,
     browser_page,
@@ -7118,14 +7213,6 @@ def test_analysis_page_uses_shared_product_client_for_natural_api_requests(
     browser_page.goto(live_server_url)
     browser_page.wait_for_function("() => Boolean(window.LotteryProduct)")
     client_id = browser_page.evaluate("() => window.LotteryProduct.clientId()")
-    browser_page.evaluate(
-        """
-        () => localStorage.setItem(
-          "lotteryLuck:numberPool:ssq",
-          JSON.stringify([{main: [1, 2, 3, 4, 5, 6], special: [7]}])
-        )
-        """
-    )
 
     calls = []
 
@@ -7145,12 +7232,14 @@ def test_analysis_page_uses_shared_product_client_for_natural_api_requests(
             body = {"games": [{"game_key": "ssq", "game_name": "双色球", "latest_date": "2026-06-19", "latest_issue": "2026068"}]}
         elif path.startswith("/api/analysis/"):
             body = _analysis_payload("ssq")
-        elif path.startswith("/api/number-pool/"):
-            body = _pool_payload()
         elif path == "/api/calendar":
             body = _calendar_payload()
-        elif path.startswith("/api/filter/"):
-            body = _filter_payload()
+        elif path == "/api/surfaces/config":
+            body = {
+                "version": 1,
+                "views": ["data", "strategy"],
+                "games": {"ssq": {"research": {"strategy": {"condition_fields": ["sum_min", "sum_max"]}}}},
+            }
         else:
             body = {}
         route.fulfill(
@@ -7162,9 +7251,8 @@ def test_analysis_page_uses_shared_product_client_for_natural_api_requests(
     for pattern in [
         "/api/games",
         "/api/analysis/**",
-        "/api/number-pool/**",
         "/api/calendar",
-        "/api/filter/**",
+        "/api/surfaces/config",
     ]:
         browser_page.route(f"{live_server_url}{pattern}", route_analysis_api)
 
@@ -7172,25 +7260,17 @@ def test_analysis_page_uses_shared_product_client_for_natural_api_requests(
     browser_page.wait_for_function(
         "() => document.querySelector('#calendarPanel').textContent.includes('双色球')"
     )
-    browser_page.locator("#filterForm").evaluate("(form) => form.requestSubmit()")
-    browser_page.wait_for_function(
-        "() => document.querySelector('#filterResult').textContent.includes('测试')"
-    )
 
     expected_paths = {
         "/api/games",
         "/api/analysis/ssq?window=30",
-        "/api/number-pool/ssq/analyze",
         "/api/calendar",
-        "/api/filter/ssq",
     }
     seen_paths = {call["path"] for call in calls}
     assert expected_paths.issubset(seen_paths)
     assert all(call["client"] == client_id for call in calls)
-    filter_call = next(call for call in calls if call["path"] == "/api/filter/ssq")
-    assert filter_call["method"] == "POST"
-    assert filter_call["content_type"] == "application/json"
-    assert filter_call["body"]["sum_min"] == 80
+    analysis_call = next(call for call in calls if call["path"] == "/api/analysis/ssq?window=30")
+    assert analysis_call["method"] == "GET"
 
 
 def test_analysis_http_error_ui_works_through_shared_product_client(

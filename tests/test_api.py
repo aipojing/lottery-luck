@@ -396,11 +396,18 @@ def test_analysis_page_serves_analysis_workbench():
     assert "./workbench-3d.css" in response.text
     assert "./workbench-3d.js" in response.text
     assert "./analysis.js" in response.text
+    assert "./research-strategy.js" in response.text
     assert response.text.index("./styles.css") < response.text.index("./workbench-3d.css")
     assert response.text.index("./workbench-3d.js") < response.text.index("./analysis.js")
-    assert "号码筛选器" in response.text
-    assert "回测功能" in response.text
-    assert "我的号码池" in response.text
+    assert response.text.index("./analysis.js") < response.text.index("./research-strategy.js")
+    assert 'id="researchViewTabs"' in response.text
+    assert 'id="researchDataView"' in response.text
+    assert 'id="researchStrategyView"' in response.text
+    assert 'data-research-view="data"' in response.text
+    assert 'data-research-view="strategy"' in response.text
+    assert "策略验证" in response.text
+    assert 'id="useStrategyButton"' in response.text
+    assert 'id="strategyCompat"' not in response.text
     assert "开奖日历和提醒" in response.text
     assert "彩民常看" in response.text
     assert 'id="commonViewPanel"' in response.text
@@ -1536,12 +1543,24 @@ def test_result_frontend_asset_is_served():
     assert "drawSharePoster" in response.text
 
 
-def test_analysis_asset_includes_common_view_and_pool_commentary():
+def test_analysis_asset_includes_common_view_and_research_shell():
     response = client.get("/analysis.js")
 
     assert response.status_code == 200
     assert "renderCommonView" in response.text
-    assert "fortune_commentary" in response.text
+    assert "LotteryResearch" in response.text
+    assert "researchSubscribers" in response.text
+
+
+def test_research_strategy_asset_serves_isolated_module():
+    response = client.get("/research-strategy.js")
+
+    assert response.status_code == 200
+    assert "window.LotteryResearch.subscribe" in response.text
+    assert "lotteryLuck:strategyLab:" in response.text
+    assert "needs-resave" in response.text
+    assert "lottery_research_handoff_v1" in response.text
+    assert "tool=conditional&source=strategy" in response.text
 
 
 def test_frontend_styles_are_served():

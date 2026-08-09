@@ -162,9 +162,8 @@
     return gameKey === "3d" || gameKey === "pl3";
   }
 
-  function consumeResearchHandoff(gameKey) {
+  function peekResearchHandoff(gameKey) {
     const raw = sessionStorage.getItem(HANDOFF_KEY);
-    sessionStorage.removeItem(HANDOFF_KEY);
     if (!raw) return { value: null, error: "策略条件未能带入，请重新选择。" };
     try {
       const value = JSON.parse(raw);
@@ -184,11 +183,27 @@
     const state = urlState();
     if (state.tool !== "conditional") return;
     const hadHandoff = sessionStorage.getItem(HANDOFF_KEY) !== null || params.get("source") === "strategy";
-    const consumed = consumeResearchHandoff(state.game);
-    if (consumed.value) activeHandoff = consumed.value;
-    else if (hadHandoff) {
+    const peeked = peekResearchHandoff(state.game);
+    if (peeked.value) {
+      // A valid handoff must still be readable once the navigation that carried it settles,
+      // so it is consumed only after the load event. Invalid or stale handoffs are removed
+      // at once and reported before the page finishes loading.
+      window.addEventListener(
+        "load",
+        () => {
+          setTimeout(() => {
+            sessionStorage.removeItem(HANDOFF_KEY);
+            activeHandoff = peeked.value;
+            const current = urlState();
+            if (current.tool === "conditional" && config) activate(current.game, current.tool);
+          }, 200);
+        },
+        { once: true },
+      );
+    } else if (hadHandoff) {
+      sessionStorage.removeItem(HANDOFF_KEY);
       handoffRejected = true;
-      setStatus(consumed.error, true);
+      setStatus(peeked.error, true);
     }
   }
 
@@ -257,8 +272,12 @@
     const params = new URLSearchParams(window.location.search);
     const game = GAME_KEYS.includes(params.get("game")) ? params.get("game") : "ssq";
     const tool = TOOL_KEYS.includes(params.get("tool")) ? params.get("tool") : "quick";
-    if (params.get("game") !== game || params.get("tool") !== tool) {
-      history.replaceState(null, "", `./tools.html?game=${game}&tool=${tool}`);
+    const next = new URLSearchParams();
+    next.set("game", game);
+    next.set("tool", tool);
+    if (tool === "conditional" && params.get("source")) next.set("source", params.get("source"));
+    if (params.toString() !== next.toString()) {
+      history.replaceState(null, "", `./tools.html?${next.toString()}`);
     }
     return { game, tool };
   }
@@ -851,11 +870,13 @@
       surfaces = surfacePayload;
       if (surfaces?.games) publicGameKeys = Object.keys(surfaces.games);
       renderGames();
+      maybeConsumeHandoff();
       activate(game, tool);
       if (!handoffRejected) setStatus("工具配置已就绪。");
     } catch (_) {
       error.hidden = false;
-      setStatus("工具配置加载失败。", true);
+      maybeConsumeHandoff();
+      if (!handoffRejected) setStatus("工具配置加载失败。", true);
       activate(game, tool);
     } finally {
       loading.hidden = true;
