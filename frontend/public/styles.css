@@ -744,6 +744,111 @@ h1 {
   padding: 24px 36px;
 }
 
+.recent-profiles {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  min-width: 0;
+  border-bottom: 1px solid rgba(214, 169, 88, 0.17);
+  padding-bottom: 18px;
+}
+
+.recent-profiles-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recent-profiles-head strong {
+  color: var(--gold);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.recent-profile-list {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 1px 1px 5px;
+  scrollbar-color: rgba(214, 169, 88, 0.32) transparent;
+}
+
+.recent-profile-item {
+  position: relative;
+  flex: 0 0 220px;
+  min-width: 0;
+  border: 1px solid rgba(214, 169, 88, 0.26);
+  border-radius: 6px;
+  background: rgba(7, 6, 4, 0.62);
+}
+
+.recent-profile-fill {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 78px;
+  border: 0;
+  color: var(--gold-soft);
+  background: transparent;
+  padding: 11px 34px 11px 13px;
+  text-align: left;
+}
+
+.recent-profile-fill strong,
+.recent-profile-fill span,
+.recent-profile-fill small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-profile-fill strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.recent-profile-fill span,
+.recent-profile-fill small {
+  color: #a98750;
+  font-family:
+    "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+}
+
+.recent-profile-fill:hover,
+.recent-profile-fill:focus-visible {
+  background: rgba(214, 169, 88, 0.08);
+  outline: 1px solid rgba(255, 220, 134, 0.58);
+  outline-offset: -1px;
+}
+
+.recent-profile-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  color: #967445;
+  background: rgba(7, 6, 4, 0.76);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.recent-profile-remove:hover,
+.recent-profile-remove:focus-visible {
+  color: var(--gold-pale);
+  background: rgba(182, 40, 24, 0.22);
+  outline: none;
+}
+
 .responsible-note {
   border: 1px solid rgba(214, 169, 88, 0.2);
   background:

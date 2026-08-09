@@ -741,6 +741,100 @@ def test_home_only_reveals_result_sections_after_prediction(
     assert browser_page.locator(".history-panel").is_visible()
 
 
+def test_successful_prediction_saves_recent_profile_for_click_to_fill_only(
+    live_server_url, browser_page
+):
+    _route_predict_payload(
+        browser_page,
+        live_server_url,
+        _prediction_payload("ssq", [11, 12, 13, 14, 15, 16], [1]),
+    )
+    browser_page.goto(live_server_url)
+    browser_page.evaluate("() => localStorage.clear()")
+    browser_page.reload()
+    browser_page.wait_for_function("() => !document.querySelector('#submitButton').disabled")
+    _speed_up_motion(browser_page)
+    _fill_required_form(browser_page)
+    browser_page.locator('input[name="name"]').fill("朋友小周")
+    browser_page.locator('input[name="birth_date"]').fill("1993-08-13")
+    browser_page.locator('input[name="birth_place"]').fill("石家庄")
+    browser_page.locator('input[name="current_city"]').fill("北京")
+    browser_page.locator('[data-select-name="calendar_type"] .custom-select-trigger').click()
+    browser_page.locator(
+        '[data-select-name="calendar_type"] .custom-select-option[data-value="lunar"]'
+    ).click()
+    browser_page.locator('[data-mode="windfall"]').click()
+    browser_page.locator("#submitButton").click()
+    browser_page.wait_for_function(
+        """
+        () => JSON.parse(
+          localStorage.getItem('lotteryLuck.recentProfiles.v1') || '[]'
+        ).length === 1
+        """,
+        timeout=5000,
+    )
+
+    browser_page.reload()
+    browser_page.wait_for_selector("#recentProfiles:not([hidden])")
+    assert browser_page.locator('input[name="name"]').input_value() == ""
+    assert browser_page.locator('input[name="birth_date"]').input_value() == ""
+    assert browser_page.locator('input[name="birth_place"]').input_value() == ""
+    assert browser_page.locator('input[name="current_city"]').input_value() == ""
+    assert browser_page.locator('input[name="calendar_type"]').input_value() == "solar"
+    assert browser_page.locator('input[name="fortune_mode"]').input_value() == "steady"
+    assert browser_page.locator("[data-profile-fill]").count() == 1
+    assert "朋友小周" in browser_page.locator("[data-profile-fill]").inner_text()
+
+    browser_page.locator("[data-profile-fill]").click()
+    values = browser_page.evaluate(
+        """
+        () => Object.fromEntries([
+          'name', 'birth_date', 'calendar_type', 'birth_hour',
+          'birth_place', 'current_city', 'fortune_mode'
+        ].map((name) => [name, document.querySelector(`[name="${name}"]`).value]))
+        """
+    )
+    assert values == {
+        "name": "朋友小周",
+        "birth_date": "1993-08-13",
+        "calendar_type": "lunar",
+        "birth_hour": "辰",
+        "birth_place": "石家庄",
+        "current_city": "北京",
+        "fortune_mode": "windfall",
+    }
+    assert browser_page.locator('[data-mode="windfall"]').get_attribute("aria-pressed") == "true"
+    assert "已带入“朋友小周”的资料" in browser_page.locator("#generateFeedback").inner_text()
+
+    browser_page.locator("[data-profile-remove]").click()
+    assert browser_page.locator("#recentProfiles").is_hidden()
+    assert browser_page.evaluate(
+        "() => JSON.parse(localStorage.getItem('lotteryLuck.recentProfiles.v1') || '[]')"
+    ) == []
+
+
+def test_failed_prediction_does_not_save_recent_profile(live_server_url, browser_page):
+    _route_predict_payload(
+        browser_page,
+        live_server_url,
+        _prediction_payload("ssq", [11, 12, 13, 14, 15, 16], [1]),
+        status=500,
+    )
+    browser_page.goto(live_server_url)
+    browser_page.evaluate("() => localStorage.clear()")
+    browser_page.reload()
+    browser_page.wait_for_function("() => !document.querySelector('#submitButton').disabled")
+    _speed_up_motion(browser_page)
+    _fill_required_form(browser_page)
+    browser_page.locator("#submitButton").click()
+    browser_page.wait_for_function("() => !document.querySelector('#submitButton').disabled")
+
+    assert browser_page.evaluate(
+        "() => localStorage.getItem('lotteryLuck.recentProfiles.v1')"
+    ) is None
+    assert browser_page.locator("#recentProfiles").is_hidden()
+
+
 def test_prediction_requests_never_consume_quota():
     app_js = (PROJECT_ROOT / "web" / "app.js").read_text(encoding="utf-8")
 

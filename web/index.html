@@ -133,6 +133,12 @@
       </section>
 
       <form class="control-panel" id="predictForm">
+        <section class="recent-profiles" id="recentProfiles" aria-labelledby="recentProfilesTitle" hidden>
+          <div class="recent-profiles-head">
+            <strong id="recentProfilesTitle">最近填写</strong>
+          </div>
+          <div class="recent-profile-list" id="recentProfileList"></div>
+        </section>
         <label>
           <span>姓名</span>
           <input name="name" autocomplete="name" required />

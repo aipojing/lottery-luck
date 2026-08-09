@@ -138,7 +138,7 @@ TURSO_DATABASE_URL='libsql://...' TURSO_AUTH_TOKEN='...' \
 - `calendar_type`：`solar` 或 `lunar`。
 - `location_relation`：`same`、`different` 或 `incomplete`。location_relation 只按去除首尾空白、压缩空白和大小写归一后的文本精确相等判断，不会做行政区划后缀等价。
 
-第三方 AI 不直接接收原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。浏览器本地历史可能保存精简摘要，可在首页清空。首页财运历史只写入当前浏览器的 Local Storage，不会上传为云端财运记录；清理站点数据也会移除这些本机记录。福彩3D工具箱的结构化方案使用独立方案接口，方案详情页提供删除能力。
+第三方 AI 不直接接收原始姓名、精确出生日期、出生时辰地支、出生地或当前城市。浏览器本地财运历史可能保存精简摘要；“最近填写”会在成功起盘后保存原始表单资料，但不会自动回填，只有用户点击记录时才带入表单，并支持逐条删除。两类记录都只写入当前浏览器的 Local Storage，不会上传为云端财运记录或云端资料；清理站点数据也会移除这些本机记录。福彩3D工具箱的结构化方案使用独立方案接口，方案详情页提供删除能力。
 
 `product_events` 只接受事件名和属性白名单。允许事件名为 `prediction_completed`、`plan_saved`、`workbench_opened`、`plan_edited`、`review_viewed`、`plan_carried_forward`、`tool_opened`、`tool_result_generated`；允许属性为 `game_key`、`source_type`、`mode`、`window`、`entry_count`、`candidate_count`、`freshness_status`、`review_status`、`tool_key`、`result_count`。`tool_key` 只接受 8 个工具的固定枚举，`result_count` 只接受整数条数。事件不会采集姓名、生日、出生地、当前城市、原始号码（含查询号码）、方案标题、自由文本或 `plan_id`。事件保留 90 天且总量最多 10 万条；事件和方案写入均按客户端与网络来源双重限流，网络来源只保存不可逆摘要。
 

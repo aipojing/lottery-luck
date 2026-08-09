@@ -12,6 +12,8 @@ const VISIBLE_GAME_KEYS = ["ssq", "dlt", "3d", "pl3", "kl8"];
 
 const ANALYSIS_WINDOWS = [30, 60, 120];
 const FORTUNE_HISTORY_KEY = "lotteryLuck.fortuneHistory.v1";
+const RECENT_PROFILES_KEY = "lotteryLuck.recentProfiles.v1";
+const RECENT_PROFILES_LIMIT = 6;
 const CLIENT_ID_KEY = "lotteryLuck.clientId.v1";
 const MODE_LABELS = {
   steady: "稳财号",
@@ -351,6 +353,8 @@ const els = {
   recentDraws: document.querySelector("#recentDraws"),
   disclaimer: document.querySelector("#disclaimer"),
   fortuneHistory: document.querySelector("#fortuneHistory"),
+  recentProfiles: document.querySelector("#recentProfiles"),
+  recentProfileList: document.querySelector("#recentProfileList"),
   profileCalendarPanel: document.querySelector(".profile-calendar-panel"),
   historyPanel: document.querySelector(".history-panel"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
@@ -2011,20 +2015,186 @@ function formPayload() {
   };
 }
 
+function normalizeRecentProfile(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const profile = {
+    id: String(value.id || "").trim(),
+    saved_at: String(value.saved_at || "").trim(),
+    name: String(value.name || "").trim(),
+    birth_date: String(value.birth_date || "").trim(),
+    calendar_type: value.calendar_type === "lunar" ? "lunar" : "solar",
+    birth_hour: String(value.birth_hour || "").trim(),
+    birth_place: String(value.birth_place || "").trim(),
+    current_city: String(value.current_city || "").trim(),
+    fortune_mode: Object.hasOwn(MODE_LABELS, value.fortune_mode)
+      ? value.fortune_mode
+      : "steady",
+  };
+  if (
+    !profile.id
+    || !profile.name
+    || !/^\d{4}-\d{2}-\d{2}$/.test(profile.birth_date)
+    || !profile.birth_hour
+    || !profile.birth_place
+    || !profile.current_city
+  ) {
+    return null;
+  }
+  return profile;
+}
+
+function readRecentProfiles() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(RECENT_PROFILES_KEY) || "[]");
+    if (!Array.isArray(stored)) return [];
+    return stored.map(normalizeRecentProfile).filter(Boolean).slice(0, RECENT_PROFILES_LIMIT);
+  } catch (error) {
+    return [];
+  }
+}
+
+function writeRecentProfiles(records) {
+  try {
+    localStorage.setItem(
+      RECENT_PROFILES_KEY,
+      JSON.stringify(records.map(normalizeRecentProfile).filter(Boolean).slice(0, RECENT_PROFILES_LIMIT)),
+    );
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function recentProfileIdentity(profile) {
+  return [
+    profile.name.toLocaleLowerCase("zh-CN"),
+    profile.birth_date,
+    profile.calendar_type,
+    profile.birth_hour,
+    profile.birth_place.toLocaleLowerCase("zh-CN"),
+  ].join("\u001f");
+}
+
+function saveRecentProfile(request) {
+  const records = readRecentProfiles();
+  const candidate = normalizeRecentProfile({
+    id: window.crypto?.randomUUID
+      ? window.crypto.randomUUID()
+      : `profile-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    saved_at: new Date().toISOString(),
+    ...request,
+  });
+  if (!candidate) return;
+  const identity = recentProfileIdentity(candidate);
+  const previous = records.find((record) => recentProfileIdentity(record) === identity);
+  if (previous) candidate.id = previous.id;
+  if (!writeRecentProfiles([
+    candidate,
+    ...records.filter((record) => recentProfileIdentity(record) !== identity),
+  ])) {
+    return;
+  }
+  renderRecentProfiles();
+}
+
+function setCustomSelectValue(fieldName, value) {
+  const select = document.querySelector(`.custom-select[data-select-name="${fieldName}"]`);
+  const input = els.predictForm.querySelector(`input[name="${fieldName}"]`);
+  const options = Array.from(select?.querySelectorAll(".custom-select-option") || []);
+  const selected = options.find((option) => option.dataset.value === value);
+  if (!select || !input || !selected) return false;
+  options.forEach((option) => {
+    const active = option === selected;
+    option.classList.toggle("active", active);
+    option.setAttribute("aria-selected", String(active));
+  });
+  input.value = value;
+  const trigger = select.querySelector(".custom-select-trigger");
+  const triggerText = trigger?.querySelector("span:first-child");
+  if (triggerText) triggerText.textContent = selected.textContent.trim();
+  trigger?.setAttribute("aria-expanded", "false");
+  select.classList.remove("open");
+  const menu = select.querySelector(".custom-select-menu");
+  if (menu) menu.hidden = true;
+  return true;
+}
+
+function setFortuneMode(mode, { announce = false } = {}) {
+  const nextMode = Object.hasOwn(MODE_LABELS, mode) ? mode : "steady";
+  state.activeMode = nextMode;
+  const input = els.predictForm.querySelector('input[name="fortune_mode"]');
+  if (input) input.value = nextMode;
+  Array.from(els.fortuneModeOptions?.querySelectorAll("button[data-mode]") || []).forEach((item) => {
+    const active = item.dataset.mode === nextMode;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", String(active));
+  });
+  if (announce) {
+    setGenerateFeedback(`已切换为${currentModeLabel()}，点击开始起盘刷新本次合参。`);
+  }
+}
+
+function applyRecentProfile(profile) {
+  const normalized = normalizeRecentProfile(profile);
+  if (!normalized) return;
+  ["name", "birth_date", "birth_place", "current_city"].forEach((fieldName) => {
+    const input = els.predictForm.querySelector(`input[name="${fieldName}"]`);
+    if (input) input.value = normalized[fieldName];
+  });
+  setCustomSelectValue("calendar_type", normalized.calendar_type);
+  setCustomSelectValue("birth_hour", normalized.birth_hour);
+  setFortuneMode(normalized.fortune_mode);
+  setGenerateFeedback(`已带入“${normalized.name}”的资料，可修改后起盘。`);
+}
+
+function renderRecentProfiles() {
+  if (!els.recentProfiles || !els.recentProfileList) return;
+  const records = readRecentProfiles();
+  els.recentProfiles.hidden = !records.length;
+  els.recentProfileList.replaceChildren();
+  records.forEach((profile) => {
+    const item = document.createElement("div");
+    item.className = "recent-profile-item";
+    const fill = document.createElement("button");
+    fill.type = "button";
+    fill.className = "recent-profile-fill";
+    fill.dataset.profileFill = profile.id;
+    fill.setAttribute("aria-label", `带入${profile.name}的资料`);
+    const name = document.createElement("strong");
+    name.textContent = profile.name;
+    const detail = document.createElement("span");
+    const calendar = profile.calendar_type === "lunar" ? "阴历" : "阳历";
+    const hour = profile.birth_hour === "unknown" ? "时辰未知" : `${profile.birth_hour}时`;
+    detail.textContent = `${calendar} · ${profile.birth_date.replaceAll("-", "/")} · ${hour}`;
+    const places = document.createElement("small");
+    places.textContent = profile.birth_place === profile.current_city
+      ? profile.birth_place
+      : `${profile.birth_place} → ${profile.current_city}`;
+    fill.append(name, detail, places);
+    fill.addEventListener("click", () => applyRecentProfile(profile));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "recent-profile-remove";
+    remove.dataset.profileRemove = profile.id;
+    remove.setAttribute("aria-label", `删除${profile.name}的资料`);
+    remove.title = "删除";
+    remove.textContent = "×";
+    remove.addEventListener("click", () => {
+      writeRecentProfiles(readRecentProfiles().filter((record) => record.id !== profile.id));
+      renderRecentProfiles();
+    });
+    item.append(fill, remove);
+    els.recentProfileList.append(item);
+  });
+}
+
 function setupFortuneModes() {
   if (!els.fortuneModeOptions) return;
-  const input = els.predictForm.querySelector('input[name="fortune_mode"]');
   els.fortuneModeOptions.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-mode]");
     if (!button) return;
-    state.activeMode = button.dataset.mode || "steady";
-    if (input) input.value = state.activeMode;
-    Array.from(els.fortuneModeOptions.querySelectorAll("button[data-mode]")).forEach((item) => {
-      const active = item === button;
-      item.classList.toggle("active", active);
-      item.setAttribute("aria-pressed", String(active));
-    });
-    setGenerateFeedback(`已切换为${currentModeLabel()}，点击开始起盘刷新本次合参。`);
+    setFortuneMode(button.dataset.mode || "steady", { announce: true });
   });
 }
 
@@ -2413,6 +2583,7 @@ async function predict({ userInitiated = false } = {}) {
     if (!state.demoMode) setStatus("娱乐推荐");
     if (userInitiated) {
       const record = saveFortuneHistory(payload, requestPayload, requestContext);
+      saveRecentProfile(requestPayload);
       if (!isLatestRequest()) return;
       setGenerateFeedback(`第 ${runCount} 次${payload.mode_profile?.label || currentModeLabel(requestContext.modeKey)}已落盘，已保存到本机 · ${currentTimeLabel()}`);
       flashResultPanels(true);
@@ -2499,6 +2670,7 @@ setupCustomSelects();
 setupFortuneModes();
 setupAiSettings();
 setupPlanSyncListener();
+renderRecentProfiles();
 renderFortuneHistory();
 els.clearHistoryButton?.addEventListener("click", () => {
   writeFortuneHistory([]);
