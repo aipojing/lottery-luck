@@ -475,6 +475,11 @@ select:focus-visible {
   display: none !important;
 }
 
+.oracle-board::before,
+.oracle-board::after {
+  pointer-events: none;
+}
+
 .oracle-board::before {
   position: absolute;
   top: 36px;
