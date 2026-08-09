@@ -3432,6 +3432,9 @@ def test_3d_tool_view_lifts_tool_data_above_the_home_chrome(
 
     page.goto(f"{live_server_url}/analysis.html?game=3d&tool=frequency&window=30")
     page.wait_for_selector('[data-three-d-tool-panel="frequency"] [data-digit-cell]')
+    page.wait_for_function(
+        "() => document.querySelector('#threeDToolDefinition')?.innerText.includes('近30期')"
+    )
 
     measured = _measure_tool_view(page)
 
