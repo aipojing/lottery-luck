@@ -9123,3 +9123,420 @@ def test_3d_toolbox_shows_no_developer_facing_copy_on_any_tool(live_server_url, 
         browser_page.wait_for_selector("#threeDToolHome:not([hidden])")
 
     assert seen_disclaimers == 8
+def test_number_tools_page_exposes_all_cards_and_top_level_navigation(live_server_url, browser_page):
+    page = browser_page
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.wait_for_selector("[data-tool-card]")
+    assert page.locator("[data-tool-card]").count() == 6
+    assert page.locator("[data-game-key]").count() == 5
+    assert page.locator('[data-tool-card="quick"]').get_attribute("aria-current") == "true"
+    assert page.locator('a[href="./tools.html"]', has_text="选号工具").count() == 1
+
+    for path in ["/", "/analysis.html?game=ssq", "/strategy.html?game=ssq"]:
+        page.goto(f"{live_server_url}{path}")
+        assert page.locator('a[href="./tools.html"]', has_text="选号工具").count() == 1
+
+
+def test_quick_pick_adds_normalized_unique_entries_to_persistent_basket(
+    live_server_url, browser_page
+):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.fill('#toolWorkbench input[name="count"]', "2")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-result-entry]")
+    assert page.locator("[data-result-entry]").count() == 2
+    page.click("#addAllResults")
+    assert page.locator("#basketCount").inner_text() == "2"
+    page.reload()
+    page.wait_for_selector("#basketCount")
+    assert page.locator("#basketCount").inner_text() == "2"
+
+
+def test_basket_deduplicates_and_csv_has_expected_header(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=3d&tool=quick")
+    result = page.evaluate(
+        """
+        () => {
+          localStorage.clear();
+          const entry = {main:[1,2,3], special:[], text:'123'};
+          LotteryTools.addEntriesToBasket('3d', [entry, entry], 'quick');
+          return {
+            size: LotteryTools.readBasket().games['3d'].length,
+            csv: LotteryTools.formatCsv('3d', LotteryTools.readBasket().games['3d'])
+          };
+        }
+        """
+    )
+    assert result["size"] == 1
+    assert result["csv"].startswith("game_key,main,special,source")
+
+
+def test_tools_switch_between_full_and_organize_without_hiding_cards(
+    live_server_url, browser_page
+):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=full")
+    page.click('[data-number-zone="main"] [data-number="1"]')
+    page.click('[data-tool-card="organize"]')
+    page.wait_for_selector('textarea[name="batch_a"]')
+    assert page.locator("[data-tool-card]").count() == 6
+    page.fill(
+        'textarea[name="batch_a"]',
+        "01 02 03 04 05 06 | 07\n01 02 03 04 05 06 | 07",
+    )
+    page.select_option('select[name="operation"]', "dedupe")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-result-entry]")
+    assert page.locator("[data-result-entry]").count() == 1
+
+
+def test_tools_invalid_url_state_falls_back_to_default_keys(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=bad&tool=unknown")
+    page.wait_for_selector('#toolWorkbench input[name="count"]')
+    assert page.url.endswith("/tools.html?game=ssq&tool=quick")
+    assert page.locator('[data-tool-card="quick"]').get_attribute("aria-current") == "true"
+
+
+def test_tools_ignores_old_response_after_switching_games(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    held_requests = []
+    page.route(
+        f"{live_server_url}/api/tools/ssq/quick-pick",
+        lambda route: held_requests.append(route),
+    )
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_timeout(100)
+    assert held_requests
+    page.click('[data-game-key="dlt"]')
+    held_requests[0].fulfill(
+        status=200,
+        content_type="application/json",
+        body=json.dumps(
+            {
+                "entries": [{"main": [1, 2, 3, 4, 5, 6], "special": [7], "text": "old ssq"}],
+                "ticket_count": 1,
+                "total_cost": 2,
+            }
+        ),
+    )
+    page.wait_for_timeout(100)
+    assert page.locator("[data-result-entry]").count() == 0
+    assert page.locator("#toolResult").inner_text().find("old ssq") == -1
+    assert page.evaluate("() => LotteryTools.readBasket().games.dlt.length") == 0
+
+
+def test_tools_success_result_replaces_initial_empty_copy(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-result-entry]")
+    assert page.locator("#toolResult .tool-empty").count() == 0
+
+
+def test_basket_quota_fallback_keeps_entries_and_shows_warning(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=3d&tool=quick")
+    result = page.evaluate(
+        """
+        () => {
+          localStorage.clear();
+          Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); };
+          LotteryTools.addEntriesToBasket('3d', [{main:[1,2,3], text:'123'}], 'quick');
+          return LotteryTools.readBasket().games['3d'].length;
+        }
+        """
+    )
+    assert result == 1
+    assert page.locator("#basketWarning").is_visible()
+
+
+def test_copy_rejection_uses_exec_command_fallback(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("#copyResults")
+    page.evaluate(
+        """
+        () => {
+          Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: {writeText: () => Promise.reject(new Error('blocked'))}
+          });
+          document.execCommand = (command) => {
+            window.__copyFallbackCommand = command;
+            return true;
+          };
+        }
+        """
+    )
+    page.click("#copyResults")
+    page.wait_for_function("() => window.__copyFallbackCommand === 'copy'")
+    assert "已复制" in page.locator("#toolStatus").inner_text()
+
+
+def test_digit_basket_and_csv_keep_repeated_ordered_digits_and_group_type(
+    live_server_url, browser_page
+):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=3d&tool=quick")
+    result = page.evaluate(
+        """
+        () => {
+          localStorage.clear();
+          LotteryTools.addEntriesToBasket('3d', [
+            {main:[1,1,2], special:[], text:'112', play_type:'straight'},
+            {main:[1,2,2], special:[], text:'122', play_type:'straight'},
+            {main:[1,2], special:[], text:'1 2 · 组三', play_type:'group3'}
+          ], 'compose');
+          const entries = LotteryTools.readBasket().games['3d'];
+          return { entries, csv: LotteryTools.formatCsv('3d', entries) };
+        }
+        """
+    )
+
+    assert [entry["text"] for entry in result["entries"]] == ["112", "122", "1 2 · 组三"]
+    assert "112" in result["csv"] and "122" in result["csv"]
+    assert "group3" in result["csv"]
+
+
+def test_tools_show_live_cost_default_count_and_result_operations(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    assert page.locator('#toolWorkbench input[name="count"]').input_value() == "5"
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-result-entry]")
+    assert page.locator("[data-result-entry]").count() == 5
+    assert page.locator("[data-copy-result]").count() == 5
+    assert page.locator("[data-replace-result]").count() == 5
+    page.click("#clearResults")
+    assert page.locator("[data-result-entry]").count() == 0
+
+    page.click('[data-tool-card="full"]')
+    for number in range(1, 7):
+        page.click(f'[data-number-zone="main"] [data-number="{number}"]')
+    page.click('[data-number-zone="special"] [data-number="1"]')
+    assert "2 元，共 1 注" in page.locator("#costSummary").inner_text()
+
+
+def test_tools_reduce_can_use_latest_full_result_and_switches_digit_group_label(
+    live_server_url, browser_page
+):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=full")
+    for number in range(1, 8):
+        page.click(f'[data-number-zone="main"] [data-number="{number}"]')
+    page.click('[data-number-zone="special"] [data-number="1"]')
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-result-entry]")
+    page.click('[data-tool-card="reduce"]')
+    assert page.locator('input[name="reduce_source"][value="current"]').is_checked()
+
+    page.click('[data-game-key="3d"]')
+    assert page.locator('[data-tool-card="dantuo"] strong').inner_text() == "组选包号"
+    assert "已切换规则" in page.locator("#toolStatus").inner_text()
+
+
+def test_copy_failure_cleans_temporary_textarea_and_gives_manual_instruction(
+    live_server_url, browser_page
+):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("#copyResults")
+    page.evaluate(
+        """
+        () => {
+          Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: {writeText: () => Promise.reject(new Error('blocked'))}
+          });
+          document.execCommand = () => { throw new Error('blocked'); };
+        }
+        """
+    )
+    page.click("#copyResults")
+    page.wait_for_function("() => document.querySelector('#toolStatus').textContent.includes('请手动复制')")
+    assert page.locator('textarea[data-copy-fallback]').count() == 0
+
+
+def test_tools_basket_cap_copy_all_and_organizer_csv_download(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=3d&tool=quick")
+    size = page.evaluate(
+        """
+        () => {
+          localStorage.clear();
+          const entries = Array.from({length: 501}, (_, value) => {
+            const text = String(value).padStart(3, '0');
+            return {main: [...text].map(Number), special: [], text, play_type: 'straight'};
+          });
+          LotteryTools.addEntriesToBasket('3d', entries, 'quick');
+          return LotteryTools.readBasket().games['3d'].length;
+        }
+        """
+    )
+    assert size == 500
+    assert "500" in page.locator("#basketWarning").inner_text()
+    page.evaluate(
+        """
+        () => Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: {writeText: (text) => { window.__basketCopy = text; return Promise.resolve(); }}
+        })
+        """
+    )
+    page.click("#copyBasket")
+    page.wait_for_function("() => window.__basketCopy?.includes('000')")
+
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=organize")
+    page.fill('textarea[name="batch_a"]', "01 02 03 04 05 06 | 07")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("#downloadResults")
+    with page.expect_download() as download_info:
+        page.click("#downloadResults")
+    assert download_info.value.suggested_filename == "ssq-organized-numbers.csv"
+
+
+def test_replace_quick_result_does_not_render_after_switching_game(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    held = []
+
+    def hold_replacement(route):
+        if '"count":1' in (route.request.post_data or ""):
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(f"{live_server_url}/api/tools/ssq/quick-pick", hold_replacement)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-replace-result]")
+    page.click('[data-replace-result="0"]')
+    page.wait_for_timeout(100)
+    assert held
+    page.click('[data-game-key="dlt"]')
+    held[0].fulfill(
+        status=200,
+        content_type="application/json",
+        body=json.dumps({
+            "entries": [{"main": [1, 2, 3, 4, 5, 6], "special": [7], "text": "stale replacement"}],
+            "ticket_count": 1,
+            "total_cost": 2,
+        }),
+    )
+    page.wait_for_timeout(100)
+    assert "stale replacement" not in page.locator("#toolResult").inner_text()
+    assert page.locator("[data-result-entry]").count() == 0
+
+
+def test_replace_quick_result_does_not_render_after_clearing_results(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    held = []
+
+    def hold_replacement(route):
+        if '"count":1' in (route.request.post_data or ""):
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(f"{live_server_url}/api/tools/ssq/quick-pick", hold_replacement)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-replace-result]")
+    page.click('[data-replace-result="0"]')
+    page.wait_for_timeout(100)
+    assert held
+    page.click("#clearResults")
+    held[0].fulfill(
+        status=200,
+        content_type="application/json",
+        body=json.dumps({
+            "entries": [{"main": [1, 2, 3, 4, 5, 6], "special": [7], "text": "stale replacement"}],
+            "ticket_count": 1,
+            "total_cost": 2,
+        }),
+    )
+    page.wait_for_timeout(100)
+    assert "stale replacement" not in page.locator("#toolResult").inner_text()
+    assert page.locator("[data-result-entry]").count() == 0
+
+
+def test_truncated_compose_can_reduce_and_shows_distribution_metadata(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(12000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=full")
+    for number in range(1, 16):
+        page.click(f'[data-number-zone="main"] [data-number="{number}"]')
+    page.click('[data-number-zone="special"] [data-number="1"]')
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_function("() => document.querySelector('#toolResult').innerText.includes('5005')")
+    page.click('[data-tool-card="reduce"]')
+    page.wait_for_selector('input[name="reduce_source"][value="current"]')
+    assert "5005" in page.locator("#toolWorkbench").inner_text()
+    page.fill('input[name="budget"]', "20")
+    assert "10 注" in page.locator("#liveCostSummary").inner_text()
+    page.click('#toolWorkbench button[type="submit"]')
+    page.wait_for_selector("[data-result-entry]")
+    assert page.locator("[data-result-entry]").count() == 10
+    result_text = page.locator("#toolResult").inner_text()
+    assert "原始组合：5005 注" in result_text
+    assert "覆盖分布" in result_text
+    assert "不提高中奖概率" in result_text
+
+
+def test_reduce_empty_source_previews_zero_and_organizer_csv_marks_organize(
+    live_server_url, browser_page
+):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.goto(f"{live_server_url}/tools.html?game=ssq&tool=reduce")
+    assert "0 元，共 0 注" in page.locator("#liveCostSummary").inner_text()
+    csv = page.evaluate(
+        """
+        () => LotteryTools.formatCsv('ssq', [
+          {main:[1,2,3,4,5,6], special:[7], text:'01 02 03 04 05 06 | 07'}
+        ], 'organize')
+        """
+    )
+    assert ",organize," in csv
+
+
+def test_mobile_basket_shows_entry_count_and_actual_saved_cost(live_server_url, browser_page):
+    page = browser_page
+    page.set_default_timeout(8000)
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(f"{live_server_url}/tools.html?game=dlt&tool=quick")
+    page.evaluate(
+        """
+        () => {
+          localStorage.clear();
+          LotteryTools.addEntriesToBasket(
+            'dlt',
+            [{main:[1,2,3,4,5], special:[1,2], text:'01 02 03 04 05 | 01 02'}],
+            'compose',
+            {entry_cost: 3, multiplier: 2}
+          );
+        }
+        """
+    )
+    assert page.locator("[data-basket-count]").inner_text() == "1"
+    assert page.locator("#mobileBasketCost").inner_text() == "6 元"

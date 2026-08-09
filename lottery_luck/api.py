@@ -58,6 +58,7 @@ from .strategy import (
     compare_strategy_presets,
     generate_strategy_candidates,
 )
+from .tool_routes import router as tool_router
 from .workbench_routes import router as workbench_router
 from .write_limits import WriteRateLimitExceeded, enforce_request_write_limits
 
@@ -170,6 +171,19 @@ async def product_events_validation_error_handler(
 ):
     if request.url.path == "/api/events":
         return JSONResponse({"detail": "invalid product event"}, status_code=422)
+    if request.url.path.startswith("/api/tools/"):
+        # Pydantic's native errors expose internal validation structure that can
+        # change between versions.  Toolbox clients get one stable contract for
+        # every request-level validation failure, matching domain ToolError.
+        return JSONResponse(
+            {
+                "detail": {
+                    "code": "invalid_request",
+                    "message": "工具请求参数无效。",
+                }
+            },
+            status_code=422,
+        )
     return await request_validation_exception_handler(request, exc)
 
 
@@ -989,5 +1003,6 @@ def calendar(
 
 app.include_router(plan_router)
 app.include_router(workbench_router)
+app.include_router(tool_router)
 if env_flag("LOTTERY_LUCK_SERVE_STATIC", True):
     app.mount("/", StaticFiles(directory=PROJECT_ROOT / "web", html=True), name="web")
