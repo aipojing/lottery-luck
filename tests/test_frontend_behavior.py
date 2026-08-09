@@ -9243,7 +9243,7 @@ def test_number_tools_page_exposes_all_cards_and_top_level_navigation(live_serve
     page = browser_page
     page.goto(f"{live_server_url}/tools.html?game=ssq&tool=quick")
     page.wait_for_selector("[data-tool-card]")
-    assert page.locator("[data-tool-card]").count() == 6
+    assert page.locator("[data-tool-card]").count() == 7
     assert page.locator("[data-game-key]").count() == 5
     assert page.locator('[data-tool-card="quick"]').get_attribute("aria-current") == "true"
     assert page.locator('a[href="./tools.html"]', has_text="选号工具").count() == 1
@@ -9300,7 +9300,7 @@ def test_tools_switch_between_full_and_organize_without_hiding_cards(
     page.click('[data-number-zone="main"] [data-number="1"]')
     page.click('[data-tool-card="organize"]')
     page.wait_for_selector('textarea[name="batch_a"]')
-    assert page.locator("[data-tool-card]").count() == 6
+    assert page.locator("[data-tool-card]").count() == 7
     page.fill(
         'textarea[name="batch_a"]',
         "01 02 03 04 05 06 | 07\n01 02 03 04 05 06 | 07",
@@ -9656,3 +9656,49 @@ def test_mobile_basket_shows_entry_count_and_actual_saved_cost(live_server_url, 
     )
     assert page.locator("[data-basket-count]").inner_text() == "1"
     assert page.locator("#mobileBasketCost").inner_text() == "6 元"
+
+
+def test_tools_render_game_specific_capabilities_and_conditional_card(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/tools.html?game=3d&tool=conditional")
+    browser_page.wait_for_selector('[data-tool-card="conditional"]')
+    assert browser_page.locator('[data-tool-card="conditional"] strong').inner_text() == "条件缩水"
+    assert browser_page.locator('[data-tool-card="dantuo"] strong').inner_text() == "组选包号"
+    assert browser_page.locator("#conditionalDigitFields").is_visible()
+
+
+def test_tools_consume_valid_strategy_handoff_once(live_server_url, browser_page):
+    browser_page.add_init_script("""
+      sessionStorage.setItem("lottery_research_handoff_v1", JSON.stringify({
+        version: 1, created_at: Date.now(), game_key: "ssq", source: "strategy",
+        preset: "balanced", name: "均衡型", window: 120,
+        conditions: {odd_even: "3:3", sum_min: 80, sum_max: 130}
+      }));
+    """)
+    browser_page.goto(f"{live_server_url}/tools.html?game=ssq&tool=conditional&source=strategy")
+    browser_page.wait_for_selector("#conditionalSource")
+    assert "来源：均衡型" in browser_page.locator("#conditionalSource").inner_text()
+    assert browser_page.locator('[name="sum_min"]').input_value() == "80"
+    assert browser_page.evaluate("() => sessionStorage.getItem('lottery_research_handoff_v1')") is None
+
+
+def test_old_number_pool_migrates_idempotently_without_deletion(live_server_url, browser_page):
+    browser_page.add_init_script("""
+      localStorage.setItem("lotteryLuck:numberPool:3d", JSON.stringify([
+        {main: [1, 1, 2], special: []}, {main: [1, 2, 2], special: []}
+      ]));
+    """)
+    browser_page.goto(f"{live_server_url}/tools.html?game=3d&tool=quick")
+    browser_page.wait_for_function("() => document.querySelector('[data-basket-count]').textContent === '2'")
+    browser_page.reload()
+    browser_page.wait_for_function("() => document.querySelector('[data-basket-count]').textContent === '2'")
+    assert browser_page.evaluate("() => localStorage.getItem('lotteryLuck:numberPool:3d')") is not None
+
+
+def test_expired_or_cross_game_handoff_is_rejected_with_visible_message(live_server_url, browser_page):
+    browser_page.add_init_script("""
+      sessionStorage.setItem("lottery_research_handoff_v1", JSON.stringify({
+        version: 1, created_at: Date.now() - 1800001, game_key: "dlt", source: "strategy", conditions: {}
+      }));
+    """)
+    browser_page.goto(f"{live_server_url}/tools.html?game=ssq&tool=conditional&source=strategy")
+    assert "策略条件未能带入" in browser_page.locator("#toolStatus").inner_text()

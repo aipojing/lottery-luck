@@ -293,6 +293,48 @@
   background: #151411;
 }
 
+.tool-source {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--tool-line);
+  background: #151411;
+  color: #ffe8ad;
+}
+
+.conditional-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.conditional-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.conditional-checks {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.conditional-checks legend {
+  margin-bottom: 6px;
+  color: #c9c0ad;
+}
+
+.conditional-checks label {
+  display: inline-flex;
+  min-height: 40px;
+  margin-right: 12px;
+  align-items: center;
+  gap: 6px;
+}
+
+.conditional-checks input {
+  min-height: auto;
+}
+
 .tool-disclaimer {
   margin: 18px 0;
   color: #aaa18f;
