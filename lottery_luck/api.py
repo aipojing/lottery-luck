@@ -58,6 +58,7 @@ from .strategy import (
     compare_strategy_presets,
     generate_strategy_candidates,
 )
+from .surface_routes import router as surface_router
 from .tool_routes import router as tool_router
 from .workbench_routes import router as workbench_router
 from .write_limits import WriteRateLimitExceeded, enforce_request_write_limits
@@ -1004,5 +1005,6 @@ def calendar(
 app.include_router(plan_router)
 app.include_router(workbench_router)
 app.include_router(tool_router)
+app.include_router(surface_router)
 if env_flag("LOTTERY_LUCK_SERVE_STATIC", True):
     app.mount("/", StaticFiles(directory=PROJECT_ROOT / "web", html=True), name="web")
