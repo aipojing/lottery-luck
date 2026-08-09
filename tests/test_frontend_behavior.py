@@ -7135,11 +7135,30 @@ def test_analysis_http_error_ui_works_through_shared_product_client(
 def test_stale_prediction_response_does_not_overwrite_switched_game_or_history(
     live_server_url, browser_page
 ):
+    # Delay the first response inside the browser. Sleeping in a synchronous
+    # Playwright route handler can block the client and postpone the game switch
+    # until after the stale response has already been rendered.
+    browser_page.add_init_script(
+        """
+        (() => {
+          const originalFetch = window.fetch.bind(window);
+          window.fetch = (input, init = {}) => {
+            const url = new URL(typeof input === "string" ? input : input.url, location.origin);
+            const body = init.body ? JSON.parse(init.body) : {};
+            const isDelayedPrediction = url.pathname === "/api/predict" && body.game_key === "ssq";
+            if (!isDelayedPrediction) return originalFetch(input, init);
+            return originalFetch(input, init).then(
+              (response) => new Promise((resolve) => setTimeout(() => resolve(response), 800)),
+            );
+          };
+        })();
+        """
+    )
+
     def route_predict(route):
         body = json.loads(route.request.post_data or "{}")
         game_key = body.get("game_key", "ssq")
         if game_key == "ssq":
-            time.sleep(0.6)
             payload = _prediction_payload("ssq", [21, 22, 23, 24, 25, 26], [6])
         else:
             payload = _prediction_payload("dlt", [3, 4, 5, 6, 7], [8, 9])
