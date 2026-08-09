@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>数运合参 · 玄金私享盘</title>
     <link rel="icon" href="./assets/black-gold-stone.png" type="image/png" />
-    <link rel="stylesheet" href="./styles.css?v=20260809-home-interactions-v1" />
+    <link rel="stylesheet" href="./styles.css?v=20260810-history-drawer-v1" />
     <link rel="stylesheet" href="./motion.css?v=20260712-cinematic-v1" />
   </head>
   <body class="home-page">
@@ -80,6 +80,19 @@
           </div>
         </form>
       </dialog>
+
+      <button
+        class="history-quick-button"
+        id="historyQuickButton"
+        type="button"
+        data-motion-reveal
+        aria-haspopup="dialog"
+        aria-controls="historyDialog"
+        hidden
+      >
+        <span>历史号码</span>
+        <strong id="historyQuickCount" aria-label="0 条记录">0</strong>
+      </button>
 
       <nav class="game-tabs" id="gameTabs" aria-label="彩种切换"></nav>
 
@@ -434,16 +447,6 @@
         </article>
       </section>
 
-      <section class="history-panel" data-motion-reveal aria-label="我的历史财运号" hidden>
-        <div class="basis-head">
-          <p>我的历史财运号</p>
-          <button class="text-action" id="clearHistoryButton" type="button">清空</button>
-        </div>
-        <div class="fortune-history-list" id="fortuneHistory">
-          <p class="empty-state">暂无生成记录。</p>
-        </div>
-      </section>
-
       <footer class="site-footer">
         <span>仅供娱乐参考，请理性参与。</span>
         <a href="./privacy.html">隐私说明</a>
@@ -451,9 +454,35 @@
 
     </main>
 
+    <dialog class="history-drawer" id="historyDialog" aria-labelledby="historyDialogTitle">
+      <section class="history-panel" aria-label="我的历史财运号">
+        <header class="history-drawer-head">
+          <div>
+            <span>本机记录</span>
+            <h2 id="historyDialogTitle">历史号码</h2>
+          </div>
+          <div class="history-drawer-actions">
+            <button class="text-action" id="clearHistoryButton" type="button">清空</button>
+            <button
+              class="history-drawer-close"
+              id="closeHistoryDialogButton"
+              type="button"
+              aria-label="关闭历史号码"
+              title="关闭"
+            >
+              &times;
+            </button>
+          </div>
+        </header>
+        <div class="fortune-history-list" id="fortuneHistory">
+          <p class="empty-state">暂无生成记录。</p>
+        </div>
+      </section>
+    </dialog>
+
     <script src="./ai-key.js?v=20260809-user-ai-key-v1" defer></script>
     <script src="./motion.js?v=20260712-cinematic-v1" defer></script>
     <script src="./product-client.js?v=20260713-product-client-v2" defer></script>
-    <script src="./app.js?v=20260809-require-ai-key-v1" defer></script>
+    <script src="./app.js?v=20260810-history-drawer-v1" defer></script>
   </body>
 </html>

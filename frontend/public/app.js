@@ -356,7 +356,10 @@ const els = {
   recentProfiles: document.querySelector("#recentProfiles"),
   recentProfileList: document.querySelector("#recentProfileList"),
   profileCalendarPanel: document.querySelector(".profile-calendar-panel"),
-  historyPanel: document.querySelector(".history-panel"),
+  historyQuickButton: document.querySelector("#historyQuickButton"),
+  historyQuickCount: document.querySelector("#historyQuickCount"),
+  historyDialog: document.querySelector("#historyDialog"),
+  closeHistoryDialogButton: document.querySelector("#closeHistoryDialogButton"),
   clearHistoryButton: document.querySelector("#clearHistoryButton"),
   predictionActions: document.querySelector("#predictionActions"),
   savePlanButton: document.querySelector("#savePlanButton"),
@@ -2279,7 +2282,12 @@ function renderFortuneHistory() {
   if (!els.fortuneHistory) return;
   const records = readFortuneHistory();
   if (els.profileCalendarPanel) els.profileCalendarPanel.hidden = !records.length;
-  if (els.historyPanel) els.historyPanel.hidden = !records.length;
+  if (els.historyQuickButton) els.historyQuickButton.hidden = !records.length;
+  if (els.historyQuickCount) {
+    els.historyQuickCount.textContent = String(records.length);
+    els.historyQuickCount.setAttribute("aria-label", `${records.length} 条记录`);
+  }
+  if (!records.length && els.historyDialog?.open) els.historyDialog.close();
   els.fortuneHistory.replaceChildren();
   if (!records.length) {
     const empty = document.createElement("p");
@@ -2672,6 +2680,15 @@ setupAiSettings();
 setupPlanSyncListener();
 renderRecentProfiles();
 renderFortuneHistory();
+els.historyQuickButton?.addEventListener("click", () => {
+  if (!els.historyDialog?.open) els.historyDialog?.showModal();
+});
+els.closeHistoryDialogButton?.addEventListener("click", () => {
+  els.historyDialog?.close();
+});
+els.historyDialog?.addEventListener("click", (event) => {
+  if (event.target === els.historyDialog) els.historyDialog.close();
+});
 els.clearHistoryButton?.addEventListener("click", () => {
   writeFortuneHistory([]);
   renderFortuneHistory();
