@@ -79,9 +79,23 @@ def main():
             "() => document.querySelectorAll('#basketEntries li').length > 0"
         )
         page.wait_for_timeout(600)
-        page.evaluate("window.scrollTo(0, 0)")
+        page.evaluate(
+            """() => {
+              const result = document.querySelector("#toolResult");
+              window.scrollTo(0, result.getBoundingClientRect().top + window.scrollY - 20);
+            }"""
+        )
         page.wait_for_timeout(300)
-        page.screenshot(path=str(ARTIFACTS / "number-tools-conditional-desktop.png"), full_page=True)
+        if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
+            raise RuntimeError("number tools conditional view has horizontal overflow at 1440px")
+        if not page.evaluate(
+            """() => ["#toolResult", "#toolBasket"].every((selector) => {
+              const rect = document.querySelector(selector).getBoundingClientRect();
+              return rect.bottom > 0 && rect.top < window.innerHeight;
+            })"""
+        ):
+            raise RuntimeError("number tools capture must show generated results and the number basket together")
+        page.screenshot(path=str(ARTIFACTS / "number-tools-conditional-desktop.png"))
         page.close()
 
         browser.close()

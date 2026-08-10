@@ -34,6 +34,7 @@ const state = {
   games: DEMO_GAMES,
   capabilities: null,
   demoMode: false,
+  routeNotice: "",
 };
 
 const els = {
@@ -80,8 +81,7 @@ function syncUrl() {
   const params = new URLSearchParams(window.location.search);
   params.set("game", state.activeGame);
   params.set("window", String(state.analysisWindow));
-  if (state.activeView === "strategy") params.set("view", "strategy");
-  else params.delete("view");
+  params.set("view", state.activeView);
   const tool = params.get("tool");
   const keepTool =
     state.activeGame === "3d" &&
@@ -97,7 +97,7 @@ function syncUrl() {
 
 function normalizeView(value, announceInvalid = false) {
   if (value === null || RESEARCH_VIEWS.includes(value)) return value || "data";
-  if (announceInvalid) setStatus("研究视图无效，已回到数据观察。", true);
+  if (announceInvalid) state.routeNotice = "研究视图无效，已回到数据观察。";
   return "data";
 }
 
@@ -109,7 +109,7 @@ function initFromUrl() {
   if (game && VISIBLE_GAME_KEYS.includes(game)) {
     state.activeGame = game;
   } else if (game) {
-    setStatus("彩种无效，已回到双色球。", true);
+    state.routeNotice = "彩种无效，已回到双色球。";
   }
   state.activeView = normalizeView(view, view !== null);
   if (ANALYSIS_WINDOWS.includes(windowSize)) {
@@ -619,12 +619,13 @@ async function loadGames() {
     const data = await fetchJson("/api/games");
     state.games = Array.isArray(data.games) && data.games.length ? data.games : DEMO_GAMES;
     state.demoMode = false;
-    setStatus("研究中心");
+    setStatus(state.routeNotice || "研究中心", Boolean(state.routeNotice));
   } catch (error) {
     state.games = DEMO_GAMES;
     state.demoMode = true;
-    setStatus("Demo 预览", true);
+    setStatus(state.routeNotice || "Demo 预览", true);
   }
+  state.routeNotice = "";
   renderTabs();
   renderGameMeta();
 }

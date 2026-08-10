@@ -80,10 +80,9 @@
   function routeUrl(tool, windowSize) {
     const params = new URLSearchParams();
     params.set("game", GAME_KEY);
+    params.set("view", "data");
+    params.set("window", String(normalizeWindow(windowSize)));
     if (tool) params.set("tool", tool);
-    if (tool && WINDOW_TOOLS.has(tool)) {
-      params.set("window", String(normalizeWindow(windowSize)));
-    }
     const today = new URLSearchParams(window.location.search).get("today");
     if (TODAY_PATTERN.test(today || "")) params.set("today", today);
     return `./analysis.html?${params.toString()}`;

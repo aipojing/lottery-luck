@@ -1679,11 +1679,13 @@ def test_analysis_3d_uses_dedicated_toolbox_route_url_and_game_switch(
     assert browser_page.locator("#threeDToolHome").is_visible()
     assert browser_page.locator("#threeDToolWorkspace").is_hidden()
     assert "1个本期方案" in browser_page.locator("#threeDPlanStrip").inner_text()
-    browser_page.wait_for_function("() => window.location.search === '?game=3d'")
+    browser_page.wait_for_function(
+        "() => window.location.search === '?game=3d&view=data&window=30'"
+    )
 
     _open_3d_tool(browser_page, "frequency")
     browser_page.wait_for_function(
-        "() => window.location.search === '?game=3d&tool=frequency&window=30'"
+        "() => window.location.search === '?game=3d&view=data&window=30&tool=frequency'"
     )
     assert browser_page.locator("#threeDToolHome").is_hidden()
     assert browser_page.locator("#threeDToolTitle").inner_text() == "出次统计"
@@ -1712,7 +1714,9 @@ def test_analysis_3d_uses_dedicated_toolbox_route_url_and_game_switch(
     assert len(summary_calls) == summary_count_before_ssq
 
     browser_page.locator('button[data-game="3d"]').click()
-    browser_page.wait_for_function("() => window.location.search === '?game=3d'")
+    browser_page.wait_for_function(
+        "() => window.location.search === '?game=3d&view=data&window=30'"
+    )
     assert browser_page.locator("#threeDToolbox").is_visible()
     assert browser_page.locator("#threeDToolHome").is_visible()
     browser_page.wait_for_timeout(200)
@@ -2861,7 +2865,7 @@ def test_3d_tool_deep_link_legacy_mode_and_browser_back(
     page.goto(f"{live_server_url}/analysis.html?game=3d")
     page.wait_for_selector("#threeDToolHome:not([hidden])")
     page.get_by_role("button", name="走势图").click()
-    page.wait_for_url("**tool=trend&window=30")
+    page.wait_for_url("**view=data&window=30&tool=trend")
     page.go_back()
     assert page.locator("#threeDToolHome").is_visible()
     assert page.locator("#threeDToolWorkspace").is_hidden()
@@ -2871,7 +2875,7 @@ def test_3d_tool_deep_link_legacy_mode_and_browser_back(
     assert page.locator('[data-three-d-window="60"]').get_attribute("aria-pressed") == "true"
 
     page.goto(f"{live_server_url}/analysis.html?game=3d&mode=pro&window=120")
-    page.wait_for_url("**/analysis.html?game=3d&tool=frequency&window=120")
+    page.wait_for_url("**/analysis.html?game=3d&view=data&window=120&tool=frequency")
     assert page.locator('[data-three-d-tool-panel="frequency"]').is_visible()
 
 
@@ -2901,15 +2905,15 @@ def test_browser_back_restores_3d_toolbox_after_switching_games(
     page.goto(f"{live_server_url}/analysis.html?game=3d")
     page.wait_for_selector("#threeDToolHome:not([hidden])")
     page.get_by_role("button", name="遗漏统计").click()
-    page.wait_for_url("**tool=omission&window=30")
+    page.wait_for_url("**view=data&window=30&tool=omission")
 
     page.locator('button[data-game="ssq"]').click()
-    page.wait_for_url("**game=ssq&window=30")
+    page.wait_for_url("**game=ssq&view=data&window=30")
     assert page.locator("#analysisWorkbench").is_visible()
     assert page.locator("#threeDToolbox").is_hidden()
 
     page.go_back()
-    page.wait_for_url("**/analysis.html?game=3d")
+    page.wait_for_url("**/analysis.html?game=3d&view=data&window=30")
     assert page.locator("#threeDToolbox").is_visible()
     assert page.locator("#threeDToolHome").is_visible()
     assert page.locator("#analysisWorkbench").is_hidden()
@@ -3403,7 +3407,7 @@ def test_3d_number_tool_deep_link_round_trips_its_window(live_server_url, browse
 
     page.goto(f"{live_server_url}/analysis.html?game=3d&tool=number&window=120")
     page.wait_for_selector('[data-three-d-tool-panel="number"]:not([hidden])')
-    assert page.evaluate("() => location.search") == "?game=3d&tool=number&window=120"
+    assert page.evaluate("() => location.search") == "?game=3d&view=data&window=120&tool=number"
 
     page.locator("#threeDNumberQueryInput").fill("006")
     with page.expect_response(f"{live_server_url}/api/3d/number-query"):
@@ -3414,7 +3418,7 @@ def test_3d_number_tool_deep_link_round_trips_its_window(live_server_url, browse
     # Reloading the URL the address bar shows must query the same window again, not 30.
     page.reload()
     page.wait_for_selector('[data-three-d-tool-panel="number"]:not([hidden])')
-    assert page.evaluate("() => location.search") == "?game=3d&tool=number&window=120"
+    assert page.evaluate("() => location.search") == "?game=3d&view=data&window=120&tool=number"
     page.locator("#threeDNumberQueryInput").fill("006")
     with page.expect_response(f"{live_server_url}/api/3d/number-query"):
         page.locator("#threeDNumberQueryForm button[type='submit']").click()
@@ -8784,6 +8788,58 @@ def test_expired_or_cross_game_handoff_is_rejected_with_visible_message(live_ser
     """)
     browser_page.goto(f"{live_server_url}/tools.html?game=ssq&tool=conditional&source=strategy")
     assert "策略条件未能带入" in browser_page.locator("#toolStatus").inner_text()
+
+
+@pytest.mark.parametrize(
+    "handoff",
+    [
+        {"preset": "unknown", "window": 120, "conditions": {}},
+        {"preset": "balanced", "window": "120", "conditions": {}},
+        {"preset": "balanced", "window": 120, "conditions": {"unknown_rule": 1}},
+        {"preset": "balanced", "window": 120, "conditions": {"sum_min": "80"}},
+    ],
+)
+def test_tools_rejects_malformed_strategy_handoff_schema(live_server_url, browser_page, handoff):
+    browser_page.add_init_script(
+        """
+        sessionStorage.setItem("lottery_research_handoff_v1", JSON.stringify({
+          version: 1, created_at: Date.now(), game_key: "ssq", source: "strategy", ...%s
+        }));
+        """ % json.dumps(handoff),
+    )
+    browser_page.goto(f"{live_server_url}/tools.html?game=ssq&tool=conditional&source=strategy")
+    assert "策略条件未能带入" in browser_page.locator("#toolStatus").inner_text()
+    assert browser_page.locator("#conditionalSource").is_hidden()
+    assert "条件已预填" not in browser_page.locator("#toolWorkbench").inner_text()
+
+
+def test_research_data_url_is_canonical_and_invalid_route_notice_survives_game_load(
+    live_server_url, browser_page
+):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=invalid&view=invalid&window=60")
+    browser_page.wait_for_selector("#researchDataView:not([hidden])")
+    assert browser_page.evaluate("() => window.location.search") == "?game=ssq&view=data&window=60"
+    assert "已回到" in browser_page.locator("#apiStatus").inner_text()
+
+    browser_page.goto(f"{live_server_url}/analysis.html?game=3d&view=data&window=60")
+    browser_page.wait_for_selector("#threeDToolbox:not([hidden])")
+    assert browser_page.evaluate("() => window.location.search") == "?game=3d&view=data&window=60"
+
+
+def test_research_game_switch_keeps_reset_feedback_until_the_next_user_action(
+    live_server_url, browser_page
+):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=strategy")
+    browser_page.wait_for_selector("#strategyForm")
+    browser_page.locator('[data-game="dlt"]').click()
+    browser_page.wait_for_function(
+        "() => document.querySelector('#strategyStatus').textContent.includes('已按新彩种规则重置')"
+    )
+
+
+def test_research_center_data_view_uses_the_research_center_heading(live_server_url, browser_page):
+    browser_page.goto(f"{live_server_url}/analysis.html?game=ssq&view=data")
+    assert browser_page.locator("#analysisWorkbench h1").inner_text() == "研究中心"
 
 
 def test_public_navigation_has_research_and_tools_without_strategy_entry(live_server_url, browser_page):

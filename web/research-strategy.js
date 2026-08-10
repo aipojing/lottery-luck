@@ -543,7 +543,7 @@
     renderSavedStrategies(next.game);
     updateHistoryAvailability();
     renderGameSummary();
-    if (next.view === "strategy") generateCandidates();
+    if (next.view === "strategy" && !gameChanged) generateCandidates();
   });
 
   els.generateButton?.addEventListener("click", generateCandidates);

@@ -6,6 +6,7 @@
   const BASKET_KEY = "lottery_tool_basket_v1";
   const HANDOFF_KEY = "lottery_research_handoff_v1";
   const HANDOFF_MAX_AGE_MS = 30 * 60 * 1000;
+  const HANDOFF_PRESETS = ["balanced", "conservative", "aggressive"];
   const POOL_MIGRATION_KEY = "lottery_tool_pool_migration_v1";
   const STRATEGY_NUMBER_FIELDS = [
     "exclude_recent", "min_hot", "sum_min", "sum_max", "max_consecutive_run",
@@ -162,14 +163,52 @@
     return gameKey === "3d" || gameKey === "pl3";
   }
 
+  function isPlainObject(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function handoffConditionFields(gameKey) {
+    const fields = surfaces?.games?.[gameKey]?.research?.strategy?.condition_fields;
+    return Array.isArray(fields) && fields.length
+      ? fields
+      : [...STRATEGY_NUMBER_FIELDS, ...STRATEGY_TEXT_FIELDS];
+  }
+
+  function validHandoffConditions(conditions, gameKey) {
+    if (!isPlainObject(conditions)) return false;
+    const fields = new Set(handoffConditionFields(gameKey));
+    return Object.entries(conditions).every(([name, value]) => {
+      if (!fields.has(name)) return false;
+      if (STRATEGY_NUMBER_FIELDS.includes(name)) return typeof value === "number" && Number.isFinite(value);
+      if (name === "tail_exclude" || name === "tail_include") {
+        return Array.isArray(value) && value.every((tail) => Number.isInteger(tail) && tail >= 0 && tail <= 9);
+      }
+      return typeof value === "string";
+    });
+  }
+
   function peekResearchHandoff(gameKey) {
     const raw = sessionStorage.getItem(HANDOFF_KEY);
     if (!raw) return { value: null, error: "策略条件未能带入，请重新选择。" };
     try {
       const value = JSON.parse(raw);
-      const age = Date.now() - value.created_at;
-      const fresh = Number.isFinite(value.created_at) && age >= 0 && age <= HANDOFF_MAX_AGE_MS;
-      if (value.version !== 1 || value.game_key !== gameKey || value.source !== "strategy" || !fresh) {
+      const allowedKeys = new Set(["version", "created_at", "game_key", "source", "preset", "name", "window", "conditions"]);
+      const age = Date.now() - value?.created_at;
+      const fresh = typeof value?.created_at === "number" && Number.isFinite(value.created_at) && age >= 0 && age <= HANDOFF_MAX_AGE_MS;
+      const valid = isPlainObject(value)
+        && Object.keys(value).every((key) => allowedKeys.has(key))
+        && value.version === 1
+        && value.game_key === gameKey
+        && GAME_KEYS.includes(value.game_key)
+        && value.source === "strategy"
+        && HANDOFF_PRESETS.includes(value.preset)
+        && (value.name === undefined || typeof value.name === "string")
+        && Number.isInteger(value.window)
+        && value.window >= 1
+        && value.window <= 300
+        && validHandoffConditions(value.conditions, gameKey)
+        && fresh;
+      if (!valid) {
         return { value: null, error: "策略条件未能带入，请重新选择。" };
       }
       return { value, error: "" };
