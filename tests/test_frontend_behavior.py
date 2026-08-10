@@ -514,7 +514,7 @@ def test_home_only_reveals_result_sections_after_prediction(
 
     assert browser_page.locator("#predictionResults").is_hidden()
     assert browser_page.locator(".profile-calendar-panel").is_hidden()
-    assert browser_page.locator(".history-panel").is_hidden()
+    assert browser_page.locator("#historyQuickButton").is_hidden()
     assert browser_page.locator(".privacy-disclosure").count() == 0
     assert browser_page.locator("#bestDate").inner_text() == "输入生辰，起一盘属于你的号码"
     initial_text = browser_page.locator("body").inner_text()
@@ -525,7 +525,46 @@ def test_home_only_reveals_result_sections_after_prediction(
 
     assert browser_page.locator("#predictionResults").is_visible()
     assert browser_page.locator(".profile-calendar-panel").is_visible()
-    assert browser_page.locator(".history-panel").is_visible()
+    assert browser_page.locator("#historyQuickButton").is_visible()
+    assert browser_page.locator("#historyQuickCount").inner_text() == "1"
+
+
+def test_history_numbers_open_from_a_sticky_entry_without_scrolling_to_page_bottom(
+    live_server_url, browser_page
+):
+    _complete_3d_prediction(browser_page, live_server_url)
+    browser_page.evaluate("() => window.scrollTo(0, 0)")
+
+    quick_button = browser_page.locator("#historyQuickButton")
+    assert quick_button.evaluate("element => getComputedStyle(element).position") == "sticky"
+    assert browser_page.evaluate("() => window.scrollY") == 0
+
+    quick_button.click()
+
+    assert browser_page.locator("#historyDialog").get_attribute("open") is not None
+    assert browser_page.locator("#historyDialog .fortune-history-card").count() == 1
+    assert "01 02 03" in browser_page.locator(
+        "#historyDialog .history-numbers"
+    ).inner_text()
+    assert browser_page.evaluate("() => window.scrollY") < 300
+
+    browser_page.locator("#closeHistoryDialogButton").click()
+    assert browser_page.locator("#historyDialog").get_attribute("open") is None
+
+
+def test_clearing_history_closes_drawer_and_hides_quick_entry(
+    live_server_url, browser_page
+):
+    _complete_3d_prediction(browser_page, live_server_url)
+
+    browser_page.locator("#historyQuickButton").click()
+    browser_page.locator("#clearHistoryButton").click()
+
+    assert browser_page.locator("#historyDialog").get_attribute("open") is None
+    assert browser_page.locator("#historyQuickButton").is_hidden()
+    assert browser_page.evaluate(
+        "() => JSON.parse(localStorage.getItem('lotteryLuck.fortuneHistory.v1') || '[]')"
+    ) == []
 
 
 def test_successful_prediction_saves_recent_profile_for_click_to_fill_only(
